@@ -6,7 +6,7 @@ COPY package.json package-lock.json* ./
 RUN npm ci
 
 COPY . .
-RUN npx tsc -b && npx vite build
+RUN ./node_modules/.bin/tsc -b && ./node_modules/.bin/vite build
 
 FROM node:20-alpine
 
