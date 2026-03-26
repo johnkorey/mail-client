@@ -495,10 +495,13 @@ app.use("/api/graph", requireAuth, async (req, res) => {
 // ─── SPA fallback (production) ───────────────────────────────
 
 if (isProduction) {
-  const fs = require("fs");
   const distPath = path.join(__dirname, "..", "dist");
-  app.get("*", (req, res) => {
-    res.sendFile(path.join(distPath, "index.html"));
+  app.use((req, res, next) => {
+    if (req.method === "GET" && !req.path.startsWith("/api/") && !req.path.startsWith("/auth/") && !req.path.startsWith("/microsoft/")) {
+      res.sendFile(path.join(distPath, "index.html"));
+    } else {
+      next();
+    }
   });
 }
 
