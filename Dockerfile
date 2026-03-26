@@ -3,17 +3,17 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm ci
+RUN NODE_ENV=development npm ci
 
 COPY . .
-RUN ./node_modules/.bin/tsc -b && ./node_modules/.bin/vite build
+RUN npm run build
 
 FROM node:20-alpine
 
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm install --omit=dev
+RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
 COPY server ./server
