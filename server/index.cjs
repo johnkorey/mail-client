@@ -66,6 +66,7 @@ const JWT_SECRET = process.env.JWT_SECRET || "mail-client-secret-change-in-produ
 const AZURE_CLIENT_ID = process.env.VITE_AZURE_CLIENT_ID;
 const AZURE_TENANT_ID = process.env.VITE_AZURE_TENANT_ID || "common";
 const APP_DOMAIN = process.env.APP_DOMAIN || "";
+const APP_IP = process.env.APP_IP || "";
 
 // ─── Database ────────────────────────────────────────────────
 
@@ -495,7 +496,7 @@ const https = require("https");
 
 app.get("/domains/list", requireAuth, (req, res) => {
   const domains = db.prepare("SELECT * FROM custom_domains WHERE user_id = ? ORDER BY created_at DESC").all(req.userId);
-  res.json({ domains, appDomain: APP_DOMAIN });
+  res.json({ domains, appDomain: APP_DOMAIN, appIp: APP_IP });
 });
 
 app.post("/domains/add", requireAuth, (req, res) => {
@@ -513,10 +514,16 @@ app.post("/domains/add", requireAuth, (req, res) => {
   try {
     db.prepare("INSERT INTO custom_domains (user_id, domain) VALUES (?, ?)").run(req.userId, cleanDomain);
     const inserted = db.prepare("SELECT * FROM custom_domains WHERE domain = ?").get(cleanDomain);
+    const instructions = [];
+    if (APP_DOMAIN) instructions.push(`CNAME: Point "${cleanDomain}" to "${APP_DOMAIN}"`);
+    if (APP_IP) instructions.push(`A Record: Point "${cleanDomain}" to ${APP_IP}`);
+    if (!instructions.length) instructions.push("Set APP_DOMAIN or APP_IP environment variable on the server.");
+
     res.json({
       domain: inserted,
       appDomain: APP_DOMAIN,
-      instructions: `Add a CNAME record pointing "${cleanDomain}" to "${APP_DOMAIN}"`,
+      appIp: APP_IP,
+      instructions: instructions.join("\n— OR —\n"),
     });
   } catch (err) {
     if (err.message?.includes("UNIQUE")) {
@@ -531,25 +538,33 @@ app.post("/domains/verify-dns/:domainId", requireAuth, async (req, res) => {
   if (!domain) return res.status(404).json({ error: "Domain not found" });
 
   try {
-    // Check CNAME records
+    // Check CNAME and A records
     const cnames = await dns.promises.resolveCname(domain.domain).catch(() => []);
     const aRecords = await dns.promises.resolve4(domain.domain).catch(() => []);
     const appARecords = APP_DOMAIN ? await dns.promises.resolve4(APP_DOMAIN).catch(() => []) : [];
 
-    // Verify CNAME points to our app domain, or A records match
+    // Verify CNAME points to our app domain
     const cnameMatch = APP_DOMAIN && cnames.some((c) => c.toLowerCase().replace(/\.$/, "") === APP_DOMAIN.toLowerCase());
-    const aMatch = appARecords.length > 0 && aRecords.some((a) => appARecords.includes(a));
+    // Verify A record matches APP_IP directly, or resolves to same IP as APP_DOMAIN
+    const aMatchDirect = APP_IP && aRecords.includes(APP_IP);
+    const aMatchResolved = appARecords.length > 0 && aRecords.some((a) => appARecords.includes(a));
 
-    if (cnameMatch || aMatch) {
+    if (cnameMatch || aMatchDirect || aMatchResolved) {
       db.prepare("UPDATE custom_domains SET dns_verified = 1 WHERE id = ?").run(domain.id);
-      res.json({ verified: true, method: cnameMatch ? "CNAME" : "A record" });
+      const method = cnameMatch ? "CNAME" : "A record";
+      res.json({ verified: true, method });
     } else {
+      const hints = [];
+      if (APP_DOMAIN) hints.push(`CNAME: Point "${domain.domain}" to "${APP_DOMAIN}"`);
+      if (APP_IP) hints.push(`A Record: Point "${domain.domain}" to ${APP_IP}`);
+      if (!hints.length) hints.push("Configure APP_DOMAIN or APP_IP on the server.");
       res.json({
         verified: false,
         cnames,
         aRecords,
-        expected: APP_DOMAIN,
-        hint: `Add a CNAME record pointing "${domain.domain}" to "${APP_DOMAIN}"`,
+        expectedDomain: APP_DOMAIN || undefined,
+        expectedIp: APP_IP || undefined,
+        hint: hints.join("  — OR —  "),
       });
     }
   } catch (err) {

@@ -33,6 +33,7 @@ export function SettingsView() {
   const [dnsResult, setDnsResult] = useState<{ id: number; msg: string; ok: boolean } | null>(null);
   const [sslResult, setSslResult] = useState<{ id: number; msg: string; ok: boolean } | null>(null);
   const [appDomain, setAppDomain] = useState("");
+  const [appIp, setAppIp] = useState("");
   const [selectedDomain, setSelectedDomain] = useState("");
 
   // Fetch links
@@ -63,6 +64,7 @@ export function SettingsView() {
       .then((data) => {
         setDomains(data.domains || []);
         setAppDomain(data.appDomain || "");
+        setAppIp(data.appIp || "");
         setDomainsLoading(false);
       })
       .catch(() => setDomainsLoading(false));
@@ -267,16 +269,39 @@ export function SettingsView() {
                         fontSize: 12, lineHeight: 1.6,
                       }}>
                         <div style={{ fontWeight: 600, marginBottom: 4 }}>DNS Setup Required:</div>
-                        <div>Add the following CNAME record in your domain's DNS settings:</div>
-                        <div style={{
-                          fontFamily: "var(--font-mono)", marginTop: 6, padding: "6px 10px",
-                          background: "var(--color-bg-secondary)", borderRadius: "var(--radius-sm)",
-                          fontSize: 12,
-                        }}>
-                          <div><strong>Type:</strong> CNAME</div>
-                          <div><strong>Name:</strong> {d.domain.split(".")[0] === "www" ? "www" : "@"}</div>
-                          <div><strong>Target:</strong> {appDomain || "your-app-domain.zeabur.app"}</div>
-                        </div>
+                        <div>Add one of the following records in your domain's DNS settings:</div>
+
+                        {appIp && (
+                          <div style={{
+                            fontFamily: "var(--font-mono)", marginTop: 8, padding: "6px 10px",
+                            background: "var(--color-bg-secondary)", borderRadius: "var(--radius-sm)",
+                            fontSize: 12,
+                          }}>
+                            <div style={{ fontWeight: 600, color: "var(--color-primary)", marginBottom: 2 }}>Option 1 — A Record (recommended):</div>
+                            <div><strong>Type:</strong> A</div>
+                            <div><strong>Name:</strong> {d.domain.split(".")[0] === "www" ? "www" : "@"}</div>
+                            <div><strong>Value:</strong> {appIp}</div>
+                          </div>
+                        )}
+
+                        {appDomain && (
+                          <div style={{
+                            fontFamily: "var(--font-mono)", marginTop: 8, padding: "6px 10px",
+                            background: "var(--color-bg-secondary)", borderRadius: "var(--radius-sm)",
+                            fontSize: 12,
+                          }}>
+                            <div style={{ fontWeight: 600, color: "var(--color-primary)", marginBottom: 2 }}>{appIp ? "Option 2 — CNAME:" : "CNAME Record:"}</div>
+                            <div><strong>Type:</strong> CNAME</div>
+                            <div><strong>Name:</strong> {d.domain.split(".")[0] === "www" ? "www" : "@"}</div>
+                            <div><strong>Target:</strong> {appDomain}</div>
+                          </div>
+                        )}
+
+                        {!appIp && !appDomain && (
+                          <div style={{ marginTop: 6, color: "var(--color-danger)" }}>
+                            Server configuration missing — APP_DOMAIN or APP_IP must be set.
+                          </div>
+                        )}
                       </div>
                     )}
 
