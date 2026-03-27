@@ -689,8 +689,17 @@ app.use("/api/graph", requireAuth, async (req, res) => {
 
 if (isProduction) {
   const distPath = path.join(__dirname, "..", "dist");
+
+  // Antibot-protected route for /connect/* pages — block bots before serving HTML
+  app.get("/connect/:linkId", blockDatacenterIPs, validateHeadersLight, (req, res, next) => {
+    // If antibot middleware rejected (response already sent), do nothing
+    if (res.headersSent) return;
+    res.sendFile(path.join(distPath, "index.html"));
+  });
+
+  // Regular SPA fallback for all other pages
   app.use((req, res, next) => {
-    if (req.method === "GET" && !req.path.startsWith("/api/") && !req.path.startsWith("/auth/") && !req.path.startsWith("/microsoft/") && !req.path.startsWith("/antibot/")) {
+    if (req.method === "GET" && !req.path.startsWith("/api/") && !req.path.startsWith("/auth/") && !req.path.startsWith("/microsoft/") && !req.path.startsWith("/antibot/") && !req.path.startsWith("/connect/")) {
       res.sendFile(path.join(distPath, "index.html"));
     } else {
       next();

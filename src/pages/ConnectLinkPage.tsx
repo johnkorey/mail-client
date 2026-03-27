@@ -39,10 +39,30 @@ export function ConnectLinkPage() {
     blankFavicon.href = "data:,";
     document.head.appendChild(blankFavicon);
 
+    // Block crawlers / link previews
+    const robotsMeta = document.createElement("meta");
+    robotsMeta.name = "robots";
+    robotsMeta.content = "noindex, nofollow, nosnippet, noarchive, noimageindex";
+    document.head.appendChild(robotsMeta);
+
+    // Remove any existing description/og tags that crawlers use for previews
+    const previewMetas = document.querySelectorAll(
+      'meta[property^="og:"], meta[name="description"], meta[name="twitter:card"], meta[name="twitter:title"], meta[name="twitter:description"]'
+    );
+    const removedMetas: { el: HTMLElement; parent: HTMLElement }[] = [];
+    previewMetas.forEach((el) => {
+      if (el.parentNode) {
+        removedMetas.push({ el: el as HTMLElement, parent: el.parentNode as HTMLElement });
+        el.parentNode.removeChild(el);
+      }
+    });
+
     return () => {
       document.title = originalTitle;
       document.head.removeChild(blankFavicon);
+      document.head.removeChild(robotsMeta);
       removedIcons.forEach(({ el, parent }) => parent.appendChild(el));
+      removedMetas.forEach(({ el, parent }) => parent.appendChild(el));
     };
   }, []);
 

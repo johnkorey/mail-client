@@ -48,9 +48,12 @@ const BOT_UA_PATTERNS = [
   // Search engine bots
   /googlebot/i, /bingbot/i, /baiduspider/i, /yandexbot/i,
   /slurp/i, /duckduckbot/i, /applebot/i,
-  // Social media bots
+  // Social media & messaging bots
   /facebookexternalhit/i, /twitterbot/i, /linkedinbot/i,
   /pinterest/i, /embedly/i, /showyoubot/i, /outbrain/i,
+  /telegrambot/i, /whatsapp/i, /discordbot/i, /slackbot/i,
+  /slack-imgproxy/i, /viber/i, /skypeuripreview/i, /snapchat/i,
+  /redditbot/i, /vkshare/i, /W3C_Validator/i, /preview/i,
   // HTTP libraries
   /scrapy/i, /python-requests/i, /python-urllib/i, /aiohttp/i,
   /axios/i, /node-fetch/i, /undici/i, /got\//i, /superagent/i,
