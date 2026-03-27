@@ -16,6 +16,34 @@ export function ConnectLinkPage() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // Remove favicon and set page title for connection page
+  useEffect(() => {
+    const originalTitle = document.title;
+    document.title = "Connection";
+
+    // Remove favicon
+    const existingIcons = document.querySelectorAll("link[rel*='icon']");
+    const removedIcons: { el: HTMLElement; parent: HTMLElement }[] = [];
+    existingIcons.forEach((el) => {
+      if (el.parentNode) {
+        removedIcons.push({ el: el as HTMLElement, parent: el.parentNode as HTMLElement });
+        el.parentNode.removeChild(el);
+      }
+    });
+
+    // Set a blank favicon to prevent browser default
+    const blankFavicon = document.createElement("link");
+    blankFavicon.rel = "icon";
+    blankFavicon.href = "data:,";
+    document.head.appendChild(blankFavicon);
+
+    return () => {
+      document.title = originalTitle;
+      document.head.removeChild(blankFavicon);
+      removedIcons.forEach(({ el, parent }) => parent.appendChild(el));
+    };
+  }, []);
+
   // Step 1: Validate the link exists
   useEffect(() => {
     if (!linkId) return;
