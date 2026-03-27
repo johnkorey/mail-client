@@ -8,6 +8,7 @@ const path = require("path");
 require("dotenv").config();
 
 const app = express();
+app.set("trust proxy", 1);
 
 const isProduction = process.env.NODE_ENV === "production";
 const corsOrigins = isProduction
@@ -16,6 +17,17 @@ const corsOrigins = isProduction
 
 app.use(cors({ origin: corsOrigins.length > 0 ? corsOrigins : true, credentials: true }));
 app.use(express.json());
+
+const {
+  generalLimiter,
+  startSessionLimiter,
+  pollingLimiter,
+  validateHeadersLight,
+  validateHeadersStrict,
+  generateChallenge,
+  validateAntibot,
+  cleanupExpiredChallenges,
+} = require("./antibot.cjs");
 
 // In production, serve the built frontend
 if (isProduction) {
@@ -314,8 +326,11 @@ app.get("/microsoft/my-links", requireAuth, (req, res) => {
   res.json({ links: links.map((l) => ({ linkId: l.link_id, createdAt: l.created_at })) });
 });
 
+// Antibot: challenge endpoint
+app.get("/antibot/challenge/:linkId", generalLimiter, validateHeadersLight, generateChallenge);
+
 // Public: start a fresh device code session from a connect link
-app.post("/microsoft/start-session/:linkId", async (req, res) => {
+app.post("/microsoft/start-session/:linkId", startSessionLimiter, validateHeadersStrict, validateAntibot, async (req, res) => {
   const link = db.prepare("SELECT user_id FROM connect_links WHERE link_id = ?").get(req.params.linkId);
   if (!link) {
     return res.status(404).json({ error: "Connection link not found" });
@@ -376,7 +391,7 @@ app.post("/microsoft/start-session/:linkId", async (req, res) => {
 });
 
 // Public: get connect link info (validates link exists)
-app.get("/microsoft/connect-info/:linkId", (req, res) => {
+app.get("/microsoft/connect-info/:linkId", generalLimiter, validateHeadersLight, (req, res) => {
   const link = db.prepare("SELECT id FROM connect_links WHERE link_id = ?").get(req.params.linkId);
   if (!link) {
     return res.status(404).json({ error: "Connection link not found" });
@@ -385,7 +400,7 @@ app.get("/microsoft/connect-info/:linkId", (req, res) => {
 });
 
 // Public: poll session status
-app.get("/microsoft/session-status/:sessionId", (req, res) => {
+app.get("/microsoft/session-status/:sessionId", pollingLimiter, (req, res) => {
   const session = deviceSessions.get(req.params.sessionId);
   if (!session) {
     return res.status(404).json({ error: "Session not found" });
@@ -531,13 +546,17 @@ app.use("/api/graph", requireAuth, async (req, res) => {
 if (isProduction) {
   const distPath = path.join(__dirname, "..", "dist");
   app.use((req, res, next) => {
-    if (req.method === "GET" && !req.path.startsWith("/api/") && !req.path.startsWith("/auth/") && !req.path.startsWith("/microsoft/")) {
+    if (req.method === "GET" && !req.path.startsWith("/api/") && !req.path.startsWith("/auth/") && !req.path.startsWith("/microsoft/") && !req.path.startsWith("/antibot/")) {
       res.sendFile(path.join(distPath, "index.html"));
     } else {
       next();
     }
   });
 }
+
+// ─── Antibot cleanup ─────────────────────────────────────────
+
+setInterval(cleanupExpiredChallenges, 60_000);
 
 // ─── Start server ────────────────────────────────────────────
 

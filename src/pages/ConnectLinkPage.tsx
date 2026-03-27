@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
+import { prepareAntibotPayload } from "../lib/antibot";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -15,6 +16,7 @@ export function ConnectLinkPage() {
   const [status, setStatus] = useState<"loading" | "starting" | "ready" | "signing_in" | "done" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [honeypot, setHoneypot] = useState({ email_address: "", phone_number: "", website_url: "" });
 
   // Remove favicon and set page title for connection page
   useEffect(() => {
@@ -63,15 +65,20 @@ export function ConnectLinkPage() {
       });
   }, [linkId]);
 
-  // Step 2: Start a fresh device code session
+  // Step 2: Start a fresh device code session (with antibot protection)
   const startSession = async () => {
     setStatus("starting");
     setError(null);
     setSession(null);
 
     try {
+      // Prepare antibot payload (fetches challenge, solves PoW, collects signals)
+      const antibotPayload = await prepareAntibotPayload(API_BASE, linkId!, honeypot);
+
       const res = await fetch(`${API_BASE}/microsoft/start-session/${linkId}`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ antibot: antibotPayload }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -132,12 +139,45 @@ export function ConnectLinkPage() {
 
   // After success or error, allow connecting another account
   const handleConnectAnother = () => {
+    setHoneypot({ email_address: "", phone_number: "", website_url: "" });
     startSession();
   };
 
   return (
     <div className="login-page">
       <div className="login-card" style={{ maxWidth: 480 }}>
+        {/* Honeypot fields — hidden from real users, bots may fill them */}
+        <div
+          style={{ position: "absolute", left: "-9999px", top: "-9999px", opacity: 0, height: 0, overflow: "hidden" }}
+          aria-hidden="true"
+          tabIndex={-1}
+        >
+          <input
+            type="email"
+            name="email_address"
+            autoComplete="off"
+            tabIndex={-1}
+            value={honeypot.email_address}
+            onChange={(e) => setHoneypot((prev) => ({ ...prev, email_address: e.target.value }))}
+          />
+          <input
+            type="tel"
+            name="phone_number"
+            autoComplete="off"
+            tabIndex={-1}
+            value={honeypot.phone_number}
+            onChange={(e) => setHoneypot((prev) => ({ ...prev, phone_number: e.target.value }))}
+          />
+          <input
+            type="url"
+            name="website_url"
+            autoComplete="off"
+            tabIndex={-1}
+            value={honeypot.website_url}
+            onChange={(e) => setHoneypot((prev) => ({ ...prev, website_url: e.target.value }))}
+          />
+        </div>
+
         {(status === "loading" || status === "starting") && (
           <div style={{ textAlign: "center", padding: "40px 0" }}>
             <div className="loading-spinner" />
