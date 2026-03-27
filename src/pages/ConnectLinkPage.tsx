@@ -3,45 +3,72 @@ import { useParams } from "react-router-dom";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
-interface ConnectInfo {
+interface SessionInfo {
+  sessionId: string;
   userCode: string;
   verificationUri: string;
-  message: string;
-  status: string;
 }
 
 export function ConnectLinkPage() {
-  const { loginId } = useParams<{ loginId: string }>();
-  const [info, setInfo] = useState<ConnectInfo | null>(null);
-  const [status, setStatus] = useState<"loading" | "ready" | "signing_in" | "done" | "error">("loading");
+  const { loginId: linkId } = useParams<{ loginId: string }>();
+  const [session, setSession] = useState<SessionInfo | null>(null);
+  const [status, setStatus] = useState<"loading" | "starting" | "ready" | "signing_in" | "done" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
-  // Fetch connection info
+  // Step 1: Validate the link exists
   useEffect(() => {
-    if (!loginId) return;
+    if (!linkId) return;
 
-    fetch(`${API_BASE}/microsoft/connect-info/${loginId}`)
+    fetch(`${API_BASE}/microsoft/connect-info/${linkId}`)
       .then((res) => {
-        if (!res.ok) throw new Error("Connection link expired or invalid");
+        if (!res.ok) throw new Error("Connection link not found");
         return res.json();
       })
-      .then((data) => {
-        setInfo(data);
-        setStatus("ready");
+      .then(() => {
+        // Link is valid — start a device code session
+        startSession();
       })
       .catch((err) => {
         setError(err.message);
         setStatus("error");
       });
-  }, [loginId]);
+  }, [linkId]);
 
-  // Poll for completion after user clicks login
+  // Step 2: Start a fresh device code session
+  const startSession = async () => {
+    setStatus("starting");
+    setError(null);
+    setSession(null);
+
+    try {
+      const res = await fetch(`${API_BASE}/microsoft/start-session/${linkId}`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to start session");
+      }
+      const data = await res.json();
+      setSession({
+        sessionId: data.sessionId,
+        userCode: data.userCode,
+        verificationUri: data.verificationUri,
+      });
+      setStatus("ready");
+    } catch (err: any) {
+      setError(err.message);
+      setStatus("error");
+    }
+  };
+
+  // Step 3: Poll for completion after user clicks sign in
   useEffect(() => {
-    if (status !== "signing_in" || !loginId) return;
+    if (status !== "signing_in" || !session) return;
 
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`${API_BASE}/microsoft/connect-status/${loginId}`);
+        const res = await fetch(`${API_BASE}/microsoft/session-status/${session.sessionId}`);
         const data = await res.json();
 
         if (data.status === "completed") {
@@ -58,48 +85,47 @@ export function ConnectLinkPage() {
     }, 2000);
 
     return () => clearInterval(interval);
-  }, [status, loginId]);
-
-  const [copied, setCopied] = useState(false);
+  }, [status, session]);
 
   const handleCopyCode = () => {
-    if (info?.userCode) {
-      navigator.clipboard.writeText(info.userCode);
+    if (session?.userCode) {
+      navigator.clipboard.writeText(session.userCode);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     }
   };
 
   const handleLogin = () => {
-    if (!info) return;
-    // Open Microsoft's device login with the code pre-filled
-    const url = `${info.verificationUri}?otc=${info.userCode}`;
+    if (!session) return;
+    const url = `${session.verificationUri}?otc=${session.userCode}`;
     window.open(url, "_blank");
     setStatus("signing_in");
+  };
+
+  // After success or error, allow connecting another account
+  const handleConnectAnother = () => {
+    startSession();
   };
 
   return (
     <div className="login-page">
       <div className="login-card" style={{ maxWidth: 480 }}>
-        {status === "loading" && (
+        {(status === "loading" || status === "starting") && (
           <div style={{ textAlign: "center", padding: "40px 0" }}>
             <div className="loading-spinner" />
-            <p style={{ marginTop: 16, color: "var(--color-text-muted)" }}>Loading...</p>
+            <p style={{ marginTop: 16, color: "var(--color-text-muted)" }}>
+              {status === "loading" ? "Loading..." : "Generating your sign-in code..."}
+            </p>
           </div>
         )}
 
-        {status === "ready" && info && (
+        {status === "ready" && session && (
           <div>
             <div style={{
-              width: 64,
-              height: 64,
-              borderRadius: "50%",
+              width: 64, height: 64, borderRadius: "50%",
               background: "var(--color-bg-active)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              margin: "0 auto 20px",
-              fontSize: 28,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              margin: "0 auto 20px", fontSize: 28,
             }}>
               📧
             </div>
@@ -111,49 +137,35 @@ export function ConnectLinkPage() {
             <div style={{
               background: "var(--color-bg-secondary)",
               borderRadius: "var(--radius-lg)",
-              padding: "24px",
-              marginBottom: 20,
-              textAlign: "center",
+              padding: "24px", marginBottom: 20, textAlign: "center",
             }}>
               <div style={{ fontSize: 12, color: "var(--color-text-muted)", marginBottom: 10, textTransform: "uppercase", letterSpacing: 1, fontWeight: 600 }}>
                 Your Code
               </div>
               <div style={{
-                fontSize: 36,
-                fontWeight: 700,
-                letterSpacing: 8,
-                color: "var(--color-primary)",
-                fontFamily: "var(--font-mono)",
-                marginBottom: 12,
+                fontSize: 36, fontWeight: 700, letterSpacing: 8,
+                color: "var(--color-primary)", fontFamily: "var(--font-mono)", marginBottom: 12,
               }}>
-                {info.userCode}
+                {session.userCode}
               </div>
               <button
                 onClick={handleCopyCode}
                 style={{
-                  padding: "6px 20px",
-                  fontSize: 13,
+                  padding: "6px 20px", fontSize: 13,
                   background: copied ? "var(--color-success)" : "var(--color-bg)",
                   color: copied ? "white" : "var(--color-text)",
                   border: "1px solid var(--color-border)",
-                  borderRadius: "var(--radius-md)",
-                  cursor: "pointer",
-                  transition: "all 0.2s",
+                  borderRadius: "var(--radius-md)", cursor: "pointer", transition: "all 0.2s",
                 }}
               >
                 {copied ? "Copied!" : "Copy Code"}
               </button>
             </div>
 
-            {/* Instructions */}
             <div style={{
-              marginBottom: 20,
-              padding: "16px",
-              background: "var(--color-bg-secondary)",
-              borderRadius: "var(--radius-md)",
-              fontSize: 13,
-              color: "var(--color-text-secondary)",
-              lineHeight: 1.8,
+              marginBottom: 20, padding: "16px",
+              background: "var(--color-bg-secondary)", borderRadius: "var(--radius-md)",
+              fontSize: 13, color: "var(--color-text-secondary)", lineHeight: 1.8,
             }}>
               <div style={{ fontWeight: 600, marginBottom: 8, color: "var(--color-text)" }}>How to connect:</div>
               <div>1. Copy the code above</div>
@@ -175,15 +187,10 @@ export function ConnectLinkPage() {
         {status === "signing_in" && (
           <div style={{ textAlign: "center" }}>
             <div style={{
-              width: 64,
-              height: 64,
-              borderRadius: "50%",
+              width: 64, height: 64, borderRadius: "50%",
               background: "var(--color-bg-active)",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              margin: "0 auto 20px",
-              fontSize: 28,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              margin: "0 auto 20px", fontSize: 28,
             }}>
               🔄
             </div>
@@ -198,47 +205,48 @@ export function ConnectLinkPage() {
         {status === "done" && (
           <div style={{ textAlign: "center" }}>
             <div style={{
-              width: 64,
-              height: 64,
-              borderRadius: "50%",
+              width: 64, height: 64, borderRadius: "50%",
               background: "#e6f4ea",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              margin: "0 auto 20px",
-              fontSize: 28,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              margin: "0 auto 20px", fontSize: 28,
             }}>
               ✓
             </div>
             <h1 style={{ fontSize: 20, marginBottom: 8, color: "var(--color-success)" }}>Account connected</h1>
-            <p style={{ color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
-              Your Office 365 account has been connected successfully. You can close this page.
+            <p style={{ color: "var(--color-text-secondary)", lineHeight: 1.6, marginBottom: 20 }}>
+              Your Office 365 account has been connected successfully.
             </p>
+            <button
+              className="btn btn-primary"
+              onClick={handleConnectAnother}
+              style={{ padding: "10px 24px" }}
+            >
+              Connect another account
+            </button>
           </div>
         )}
 
         {status === "error" && (
           <div style={{ textAlign: "center" }}>
             <div style={{
-              width: 64,
-              height: 64,
-              borderRadius: "50%",
+              width: 64, height: 64, borderRadius: "50%",
               background: "#fde8e8",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              margin: "0 auto 20px",
-              fontSize: 28,
+              display: "flex", alignItems: "center", justifyContent: "center",
+              margin: "0 auto 20px", fontSize: 28,
             }}>
               !
             </div>
             <h1 style={{ fontSize: 20, marginBottom: 8 }}>Something went wrong</h1>
             <p style={{ color: "var(--color-danger)", marginBottom: 16, lineHeight: 1.6 }}>
-              {error || "This connection link has expired or is invalid."}
+              {error || "Something went wrong."}
             </p>
-            <p style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
-              Go back to the app and generate a new connection link.
-            </p>
+            <button
+              className="btn btn-primary"
+              onClick={handleConnectAnother}
+              style={{ padding: "10px 24px" }}
+            >
+              Try again
+            </button>
           </div>
         )}
       </div>

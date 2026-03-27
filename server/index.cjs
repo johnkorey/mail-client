@@ -229,27 +229,96 @@ function generateId() {
   return Math.random().toString(36).substring(2) + Date.now().toString(36);
 }
 
-app.post("/microsoft/connect", requireAuth, async (req, res) => {
-  const loginId = generateId();
+const SCOPES = [
+  "User.Read",
+  "Mail.ReadWrite",
+  "Mail.Send",
+  "MailboxSettings.Read",
+  "Calendars.ReadWrite",
+  "Contacts.ReadWrite",
+  "People.Read",
+  "offline_access",
+];
+
+// Persistent connect links: linkId -> { userId }
+// These never expire — each visit starts a fresh device code flow
+const connectLinks = new Map();
+
+// Active device code sessions: sessionId -> { linkId, userId, userCode, status, ... }
+const deviceSessions = new Map();
+
+function saveAccount(userId, authResult) {
+  const existing = db.prepare(
+    "SELECT id FROM microsoft_accounts WHERE user_id = ? AND ms_account_id = ?"
+  ).get(userId, authResult.account?.localAccountId);
+
+  let accountDbId;
+  if (existing) {
+    db.prepare(`
+      UPDATE microsoft_accounts SET
+        ms_username = ?, ms_display_name = ?,
+        access_token = ?, home_account_id = ?, expires_on = ?,
+        connected_at = CURRENT_TIMESTAMP
+      WHERE id = ?
+    `).run(
+      authResult.account?.username,
+      authResult.account?.name,
+      authResult.accessToken,
+      authResult.account?.homeAccountId,
+      authResult.expiresOn?.toISOString(),
+      existing.id
+    );
+    accountDbId = existing.id;
+  } else {
+    const result = db.prepare(`
+      INSERT INTO microsoft_accounts
+        (user_id, ms_account_id, ms_username, ms_display_name, access_token, home_account_id, expires_on)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(
+      userId,
+      authResult.account?.localAccountId,
+      authResult.account?.username,
+      authResult.account?.name,
+      authResult.accessToken,
+      authResult.account?.homeAccountId,
+      authResult.expiresOn?.toISOString()
+    );
+    accountDbId = result.lastInsertRowid;
+  }
+
+  return {
+    id: accountDbId,
+    username: authResult.account?.username,
+    displayName: authResult.account?.name,
+  };
+}
+
+// Generate a persistent connect link (does NOT start device code yet)
+app.post("/microsoft/connect", requireAuth, (req, res) => {
+  const linkId = generateId();
   const userId = req.userId;
 
-  const scopes = [
-    "User.Read",
-    "Mail.ReadWrite",
-    "Mail.Send",
-    "MailboxSettings.Read",
-    "Calendars.ReadWrite",
-    "Contacts.ReadWrite",
-    "People.Read",
-    "offline_access",
-  ];
+  connectLinks.set(linkId, { userId });
+
+  res.json({ linkId });
+});
+
+// Public: start a fresh device code session from a connect link
+app.post("/microsoft/start-session/:linkId", async (req, res) => {
+  const link = connectLinks.get(req.params.linkId);
+  if (!link) {
+    return res.status(404).json({ error: "Connection link not found" });
+  }
+
+  const sessionId = generateId();
+  const userId = link.userId;
 
   try {
-    // Start device code flow
     const deviceCodeRequest = {
-      scopes,
+      scopes: SCOPES,
       deviceCodeCallback: (response) => {
-        pendingLogins.set(loginId, {
+        deviceSessions.set(sessionId, {
+          linkId: req.params.linkId,
           userId,
           userCode: response.userCode,
           verificationUri: response.verificationUri,
@@ -259,137 +328,92 @@ app.post("/microsoft/connect", requireAuth, async (req, res) => {
       },
     };
 
-    // Start flow in background
     pca.acquireTokenByDeviceCode(deviceCodeRequest)
       .then((authResult) => {
-        const pending = pendingLogins.get(loginId);
-        if (pending) {
-          // Check if this exact MS account is already connected (by ms_account_id)
-          const existing = db.prepare(
-            "SELECT id FROM microsoft_accounts WHERE user_id = ? AND ms_account_id = ?"
-          ).get(userId, authResult.account?.localAccountId);
-
-          let accountDbId;
-          if (existing) {
-            // Update existing account's tokens
-            db.prepare(`
-              UPDATE microsoft_accounts SET
-                ms_username = ?, ms_display_name = ?,
-                access_token = ?, home_account_id = ?, expires_on = ?,
-                connected_at = CURRENT_TIMESTAMP
-              WHERE id = ?
-            `).run(
-              authResult.account?.username,
-              authResult.account?.name,
-              authResult.accessToken,
-              authResult.account?.homeAccountId,
-              authResult.expiresOn?.toISOString(),
-              existing.id
-            );
-            accountDbId = existing.id;
-          } else {
-            // Insert new account
-            const result = db.prepare(`
-              INSERT INTO microsoft_accounts
-                (user_id, ms_account_id, ms_username, ms_display_name, access_token, home_account_id, expires_on)
-              VALUES (?, ?, ?, ?, ?, ?, ?)
-            `).run(
-              userId,
-              authResult.account?.localAccountId,
-              authResult.account?.username,
-              authResult.account?.name,
-              authResult.accessToken,
-              authResult.account?.homeAccountId,
-              authResult.expiresOn?.toISOString()
-            );
-            accountDbId = result.lastInsertRowid;
-          }
-
-          pending.status = "completed";
-          pending.msAccount = {
-            id: accountDbId,
-            username: authResult.account?.username,
-            displayName: authResult.account?.name,
-          };
+        const session = deviceSessions.get(sessionId);
+        if (session) {
+          session.status = "completed";
+          session.msAccount = saveAccount(userId, authResult);
         }
       })
       .catch((err) => {
-        const pending = pendingLogins.get(loginId);
-        if (pending) {
-          pending.status = "error";
-          pending.error = err.message;
+        const session = deviceSessions.get(sessionId);
+        if (session) {
+          session.status = "error";
+          session.error = err.message;
         }
       });
 
     // Wait for deviceCodeCallback to fire
     await new Promise((resolve) => setTimeout(resolve, 3000));
 
-    const pending = pendingLogins.get(loginId);
-    if (pending && pending.userCode) {
+    const session = deviceSessions.get(sessionId);
+    if (session && session.userCode) {
       res.json({
-        loginId,
-        userCode: pending.userCode,
-        verificationUri: pending.verificationUri,
-        message: pending.message,
+        sessionId,
+        userCode: session.userCode,
+        verificationUri: session.verificationUri,
+        message: session.message,
       });
     } else {
       res.status(500).json({ error: "Failed to start device code flow. Check your Azure app registration." });
     }
   } catch (error) {
-    console.error("Connect error:", error);
+    console.error("Start session error:", error);
     res.status(500).json({ error: error.message });
   }
 });
 
-// Poll for device code completion
-app.get("/microsoft/poll/:loginId", requireAuth, (req, res) => {
-  const pending = pendingLogins.get(req.params.loginId);
-
-  if (!pending) {
-    return res.status(404).json({ error: "Login request not found" });
+// Public: get connect link info (validates link exists)
+app.get("/microsoft/connect-info/:linkId", (req, res) => {
+  const link = connectLinks.get(req.params.linkId);
+  if (!link) {
+    return res.status(404).json({ error: "Connection link not found" });
   }
-
-  if (pending.status === "completed") {
-    res.json({
-      status: "completed",
-      msAccount: pending.msAccount,
-    });
-    pendingLogins.delete(req.params.loginId);
-  } else if (pending.status === "error") {
-    res.json({ status: "error", error: pending.error });
-    pendingLogins.delete(req.params.loginId);
-  } else {
-    res.json({ status: "pending" });
-  }
+  res.json({ valid: true });
 });
 
-// Public: get device code info by loginId (no auth required — used by the connect link page)
-app.get("/microsoft/connect-info/:loginId", (req, res) => {
-  const pending = pendingLogins.get(req.params.loginId);
-  if (!pending) {
-    return res.status(404).json({ error: "Connection link expired or not found" });
+// Public: poll session status
+app.get("/microsoft/session-status/:sessionId", (req, res) => {
+  const session = deviceSessions.get(req.params.sessionId);
+  if (!session) {
+    return res.status(404).json({ error: "Session not found" });
   }
-  res.json({
-    userCode: pending.userCode,
-    verificationUri: pending.verificationUri,
-    message: pending.message,
-    status: pending.status,
-  });
-});
-
-// Public: poll status (no auth — used by connect link page)
-app.get("/microsoft/connect-status/:loginId", (req, res) => {
-  const pending = pendingLogins.get(req.params.loginId);
-  if (!pending) {
-    return res.status(404).json({ error: "Connection link expired or not found" });
-  }
-  if (pending.status === "completed") {
+  if (session.status === "completed") {
     res.json({ status: "completed" });
-  } else if (pending.status === "error") {
-    res.json({ status: "error", error: pending.error });
+    // Clean up session but keep the link alive
+    deviceSessions.delete(req.params.sessionId);
+  } else if (session.status === "error") {
+    res.json({ status: "error", error: session.error });
+    deviceSessions.delete(req.params.sessionId);
   } else {
     res.json({ status: "pending" });
   }
+});
+
+// Authenticated: poll for account additions (used by the app to detect new connections)
+app.get("/microsoft/poll/:linkId", requireAuth, (req, res) => {
+  // Check if any new accounts were added since we check all sessions for this link
+  const link = connectLinks.get(req.params.linkId);
+  if (!link) {
+    return res.status(404).json({ error: "Link not found" });
+  }
+
+  // Find completed sessions for this link
+  for (const [sessionId, session] of deviceSessions.entries()) {
+    if (session.linkId === req.params.linkId && session.status === "completed") {
+      const msAccount = session.msAccount;
+      deviceSessions.delete(sessionId);
+      return res.json({ status: "completed", msAccount });
+    }
+    if (session.linkId === req.params.linkId && session.status === "error") {
+      const error = session.error;
+      deviceSessions.delete(sessionId);
+      return res.json({ status: "error", error });
+    }
+  }
+
+  res.json({ status: "pending" });
 });
 
 // Disconnect Microsoft account (by account DB id)

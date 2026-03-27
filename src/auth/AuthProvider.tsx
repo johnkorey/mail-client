@@ -162,24 +162,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // Server now returns a persistent linkId (no device code yet)
       setDeviceCode({
-        loginId: data.loginId,
-        userCode: data.userCode,
-        verificationUri: data.verificationUri,
-        message: data.message,
+        loginId: data.linkId,
+        userCode: "",
+        verificationUri: "",
+        message: "",
       });
       setConnectStatus("waiting");
 
-      // Poll for completion
+      // Poll for any completed connections through this link
       const pollInterval = setInterval(async () => {
         try {
-          const pollRes = await fetch(`${API_BASE}/microsoft/poll/${data.loginId}`, {
+          const pollRes = await fetch(`${API_BASE}/microsoft/poll/${data.linkId}`, {
             headers: { Authorization: `Bearer ${token}` },
           });
           const pollData = await pollRes.json();
 
           if (pollData.status === "completed") {
-            clearInterval(pollInterval);
             const newAccount: MsAccount = pollData.msAccount;
             setMicrosoftAccounts((prev) => {
               const exists = prev.find((a) => a.id === newAccount.id);
@@ -187,28 +187,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               return [...prev, newAccount];
             });
             setActiveAccountId(newAccount.id);
-            setDeviceCode(null);
+            // Don't clear the link — keep polling for more connections
             setConnectStatus("completed");
-          } else if (pollData.status === "error") {
-            clearInterval(pollInterval);
-            setConnectError(pollData.error);
-            setConnectStatus("error");
-            setDeviceCode(null);
           }
         } catch {
           // Network error, keep polling
         }
-      }, 2000);
+      }, 3000);
 
-      // Timeout after 15 minutes
+      // Stop polling after 24 hours
       setTimeout(() => {
         clearInterval(pollInterval);
-        if (connectStatus === "waiting") {
-          setConnectError("Code expired. Please try again.");
-          setConnectStatus("error");
-          setDeviceCode(null);
-        }
-      }, 15 * 60 * 1000);
+      }, 24 * 60 * 60 * 1000);
     } catch (error: any) {
       setConnectError(error.message);
       setConnectStatus("error");
