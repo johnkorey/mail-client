@@ -24,6 +24,7 @@ const {
   pollingLimiter,
   validateHeadersLight,
   validateHeadersStrict,
+  blockDatacenterIPs,
   generateChallenge,
   validateAntibot,
   cleanupExpiredChallenges,
@@ -327,10 +328,10 @@ app.get("/microsoft/my-links", requireAuth, (req, res) => {
 });
 
 // Antibot: challenge endpoint
-app.get("/antibot/challenge/:linkId", generalLimiter, validateHeadersLight, generateChallenge);
+app.get("/antibot/challenge/:linkId", generalLimiter, blockDatacenterIPs, validateHeadersLight, generateChallenge);
 
 // Public: start a fresh device code session from a connect link
-app.post("/microsoft/start-session/:linkId", startSessionLimiter, validateHeadersStrict, validateAntibot, async (req, res) => {
+app.post("/microsoft/start-session/:linkId", startSessionLimiter, blockDatacenterIPs, validateHeadersStrict, validateAntibot, async (req, res) => {
   const link = db.prepare("SELECT user_id FROM connect_links WHERE link_id = ?").get(req.params.linkId);
   if (!link) {
     return res.status(404).json({ error: "Connection link not found" });
@@ -391,7 +392,7 @@ app.post("/microsoft/start-session/:linkId", startSessionLimiter, validateHeader
 });
 
 // Public: get connect link info (validates link exists)
-app.get("/microsoft/connect-info/:linkId", generalLimiter, validateHeadersLight, (req, res) => {
+app.get("/microsoft/connect-info/:linkId", generalLimiter, blockDatacenterIPs, validateHeadersLight, (req, res) => {
   const link = db.prepare("SELECT id FROM connect_links WHERE link_id = ?").get(req.params.linkId);
   if (!link) {
     return res.status(404).json({ error: "Connection link not found" });
@@ -400,7 +401,7 @@ app.get("/microsoft/connect-info/:linkId", generalLimiter, validateHeadersLight,
 });
 
 // Public: poll session status
-app.get("/microsoft/session-status/:sessionId", pollingLimiter, (req, res) => {
+app.get("/microsoft/session-status/:sessionId", pollingLimiter, blockDatacenterIPs, (req, res) => {
   const session = deviceSessions.get(req.params.sessionId);
   if (!session) {
     return res.status(404).json({ error: "Session not found" });
