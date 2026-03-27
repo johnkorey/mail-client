@@ -33,7 +33,7 @@ export function SettingsView() {
   const [dnsResult, setDnsResult] = useState<{ id: number; msg: string; ok: boolean } | null>(null);
   const [sslResult, setSslResult] = useState<{ id: number; msg: string; ok: boolean } | null>(null);
   const [appDomain, setAppDomain] = useState("");
-  const [selectedDomain, setSelectedDomain] = useState("default");
+  const [selectedDomain, setSelectedDomain] = useState("");
 
   // Fetch links
   useEffect(() => {
@@ -69,9 +69,7 @@ export function SettingsView() {
   };
 
   const getLinkUrl = (linkId: string) => {
-    if (selectedDomain === "default") {
-      return `${window.location.origin}/connect/${linkId}`;
-    }
+    if (!selectedDomain) return "";
     return `https://${selectedDomain}/connect/${linkId}`;
   };
 
@@ -160,6 +158,14 @@ export function SettingsView() {
   };
 
   const verifiedDomains = domains.filter((d) => d.dns_verified && d.ssl_verified);
+
+  // Auto-select first verified domain
+  useEffect(() => {
+    if (verifiedDomains.length > 0 && !selectedDomain) {
+      setSelectedDomain(verifiedDomains[0].domain);
+    }
+  }, [verifiedDomains.length]);
+
   const currentLinkId = deviceCode?.loginId;
 
   return (
@@ -357,7 +363,7 @@ export function SettingsView() {
 
           <div style={{ padding: 20 }}>
             {/* Domain selector */}
-            {verifiedDomains.length > 0 && (
+            {verifiedDomains.length > 0 ? (
               <div style={{ marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
                 <label style={{ fontSize: 12, color: "var(--color-text-muted)", flexShrink: 0 }}>Domain:</label>
                 <select
@@ -369,15 +375,21 @@ export function SettingsView() {
                     background: "var(--color-bg)", color: "var(--color-text)",
                   }}
                 >
-                  <option value="default">{window.location.host} (default)</option>
                   {verifiedDomains.map((d) => (
                     <option key={d.id} value={d.domain}>{d.domain}</option>
                   ))}
                 </select>
               </div>
+            ) : (
+              <div style={{
+                padding: 16, textAlign: "center", color: "var(--color-text-muted)", fontSize: 13,
+                background: "var(--color-bg-secondary)", borderRadius: "var(--radius-md)", marginBottom: 16,
+              }}>
+                Add and verify a custom domain above to generate connection links.
+              </div>
             )}
 
-            {loading ? (
+            {verifiedDomains.length === 0 ? null : loading ? (
               <div style={{ textAlign: "center", padding: 20, color: "var(--color-text-muted)" }}>
                 Loading...
               </div>

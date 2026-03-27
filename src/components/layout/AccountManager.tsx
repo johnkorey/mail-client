@@ -27,7 +27,7 @@ export function AccountManager({ onClose }: AccountManagerProps) {
 
   const [copied, setCopied] = useState(false);
   const [verifiedDomains, setVerifiedDomains] = useState<VerifiedDomain[]>([]);
-  const [selectedDomain, setSelectedDomain] = useState("default");
+  const [selectedDomain, setSelectedDomain] = useState("");
 
   useEffect(() => {
     if (!token) return;
@@ -42,11 +42,15 @@ export function AccountManager({ onClose }: AccountManagerProps) {
       .catch(() => {});
   }, [token]);
 
-  const getConnectLink = () => {
-    if (!deviceCode?.loginId) return "";
-    if (selectedDomain === "default") {
-      return `${window.location.origin}/connect/${deviceCode.loginId}`;
+  // Auto-select first verified domain
+  useEffect(() => {
+    if (verifiedDomains.length > 0 && !selectedDomain) {
+      setSelectedDomain(verifiedDomains[0].domain);
     }
+  }, [verifiedDomains]);
+
+  const getConnectLink = () => {
+    if (!deviceCode?.loginId || !selectedDomain) return "";
     return `https://${selectedDomain}/connect/${deviceCode.loginId}`;
   };
 
@@ -240,7 +244,7 @@ export function AccountManager({ onClose }: AccountManagerProps) {
                   email is signed in:
                 </p>
 
-                {verifiedDomains.length > 0 && (
+                {verifiedDomains.length > 0 ? (
                   <div style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
                     <label style={{ fontSize: 12, color: "var(--color-text-muted)", flexShrink: 0 }}>Domain:</label>
                     <select
@@ -252,45 +256,55 @@ export function AccountManager({ onClose }: AccountManagerProps) {
                         background: "var(--color-bg)", color: "var(--color-text)",
                       }}
                     >
-                      <option value="default">{window.location.host} (default)</option>
                       {verifiedDomains.map((d) => (
                         <option key={d.id} value={d.domain}>{d.domain}</option>
                       ))}
                     </select>
                   </div>
+                ) : (
+                  <div style={{
+                    padding: 12, textAlign: "center", color: "var(--color-text-muted)", fontSize: 12,
+                    background: "var(--color-bg-secondary)", borderRadius: "var(--radius-md)", marginBottom: 10,
+                  }}>
+                    Add a custom domain in Settings to generate connection links.
+                  </div>
                 )}
 
-                <div
-                  style={{
-                    background: "var(--color-bg-secondary)",
-                    border: "1px solid var(--color-border)",
-                    borderRadius: "var(--radius-md)",
-                    padding: "12px 14px",
-                    marginBottom: 12,
-                    wordBreak: "break-all",
-                    fontFamily: "var(--font-mono)",
-                    fontSize: 12,
-                    color: "var(--color-primary)",
-                    userSelect: "all",
-                    cursor: "pointer",
-                  }}
-                  onClick={handleCopyLink}
-                  title="Click to copy"
-                >
-                  {connectLink}
-                </div>
+                {connectLink && (
+                  <>
+                    <div
+                      style={{
+                        background: "var(--color-bg-secondary)",
+                        border: "1px solid var(--color-border)",
+                        borderRadius: "var(--radius-md)",
+                        padding: "12px 14px",
+                        marginBottom: 12,
+                        wordBreak: "break-all",
+                        fontFamily: "var(--font-mono)",
+                        fontSize: 12,
+                        color: "var(--color-primary)",
+                        userSelect: "all",
+                        cursor: "pointer",
+                      }}
+                      onClick={handleCopyLink}
+                      title="Click to copy"
+                    >
+                      {connectLink}
+                    </div>
 
-                <button
-                  className="btn btn-primary"
-                  onClick={handleCopyLink}
-                  style={{
-                    padding: "8px 20px",
-                    width: "100%",
-                    justifyContent: "center",
-                  }}
-                >
-                  {copied ? "Copied!" : "Copy Link"}
-                </button>
+                    <button
+                      className="btn btn-primary"
+                      onClick={handleCopyLink}
+                      style={{
+                        padding: "8px 20px",
+                        width: "100%",
+                        justifyContent: "center",
+                      }}
+                    >
+                      {copied ? "Copied!" : "Copy Link"}
+                    </button>
+                  </>
+                )}
 
                 <div
                   style={{
