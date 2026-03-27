@@ -72,7 +72,9 @@ export function ConnectLinkPage() {
 
     fetch(`${API_BASE}/microsoft/connect-info/${linkId}`)
       .then((res) => {
-        if (!res.ok) throw new Error("Connection link not found");
+        if (!res.ok) return res.json().catch(() => ({})).then((data) => {
+          throw new Error(data.error || `Request failed (${res.status})`);
+        });
         return res.json();
       })
       .then(() => {
