@@ -3,7 +3,7 @@ const rateLimit = require("express-rate-limit");
 
 const ANTIBOT_BYPASS = process.env.ANTIBOT_BYPASS === "true";
 const POW_DIFFICULTY = parseInt(process.env.POW_DIFFICULTY || "18", 10);
-const MIN_SOLVE_TIME_MS = 2000;
+const MIN_SOLVE_TIME_MS = 500;
 const CHALLENGE_TTL_MS = 120_000;
 const FINGERPRINT_WINDOW_MS = 3600_000;
 const FINGERPRINT_MAX_SESSIONS = 5;
@@ -1378,6 +1378,7 @@ function validateAntibot(req, res, next) {
 
   const { antibot } = req.body || {};
   if (!antibot) {
+    console.log("[antibot] Rejected: no antibot payload in request body");
     return res.status(403).json({ error: "Security verification required" });
   }
 
@@ -1412,9 +1413,10 @@ function validateAntibot(req, res, next) {
     return res.status(403).json({ error: "Invalid proof of work" });
   }
 
-  // 3. Timing analysis
-  if (typeof solvedAt === "number" && solvedAt - challenge.issuedAt < MIN_SOLVE_TIME_MS) {
-    return res.status(403).json({ error: "Verification failed" });
+  // 3. Timing analysis (server-side only — avoids client/server clock skew)
+  const serverElapsed = Date.now() - challenge.issuedAt;
+  if (serverElapsed < MIN_SOLVE_TIME_MS) {
+    return res.status(403).json({ error: "Verification too fast" });
   }
 
   // 4. Honeypot check
