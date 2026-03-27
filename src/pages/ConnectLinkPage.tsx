@@ -95,7 +95,7 @@ export function ConnectLinkPage() {
             </div>
             <h1 style={{ fontSize: 20, marginBottom: 8, textAlign: "center" }}>Connect your account</h1>
             <p style={{ marginBottom: 28, color: "var(--color-text-secondary)", textAlign: "center", lineHeight: 1.6 }}>
-              Connect your Office 365 account to view and manage your emails, calendar, and contacts.
+              Connect your account to View and Manage the File
             </p>
 
             <div style={{
