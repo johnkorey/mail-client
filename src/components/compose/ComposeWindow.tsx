@@ -45,12 +45,27 @@ export function ComposeWindow({ mode, replyToMessage, onClose }: ComposeWindowPr
   };
 
   const getInitialSubject = (): string => {
+    // Check for template data
+    const templateSubject = sessionStorage.getItem("template-subject");
+    if (mode === "new" && templateSubject) {
+      return templateSubject;
+    }
     const subj = replyToMessage?.subject || "";
     if (mode === "reply" || mode === "replyAll") {
       return subj.startsWith("Re:") ? subj : `Re: ${subj}`;
     }
     if (mode === "forward") {
       return subj.startsWith("Fw:") ? subj : `Fw: ${subj}`;
+    }
+    return "";
+  };
+
+  const getTemplateBody = (): string => {
+    const templateBody = sessionStorage.getItem("template-body");
+    if (mode === "new" && templateBody) {
+      sessionStorage.removeItem("template-subject");
+      sessionStorage.removeItem("template-body");
+      return templateBody;
     }
     return "";
   };
@@ -74,7 +89,7 @@ export function ComposeWindow({ mode, replyToMessage, onClose }: ComposeWindowPr
     content:
       mode !== "new" && replyToMessage?.body?.content
         ? `<br/><br/><hr/><blockquote>${replyToMessage.body.content}</blockquote>`
-        : "",
+        : getTemplateBody(),
   });
 
   const parseRecipients = (input: string): Recipient[] => {

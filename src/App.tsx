@@ -14,7 +14,10 @@ import { CalendarView } from "./components/calendar/CalendarView";
 import { SearchResults } from "./components/search/SearchResults";
 import { AccountManager } from "./components/layout/AccountManager";
 import { AdminConsentPage } from "./pages/AdminConsentPage";
-import { useMailState } from "./hooks/useMailState";
+import { ContactExtractor } from "./components/extract/ContactExtractor";
+import { BulkMessaging } from "./components/bulk/BulkMessaging";
+import { TemplatesView } from "./components/templates/TemplatesView";
+import { useMailState, type MailState } from "./hooks/useMailState";
 import { useMessages, useMessage, useDeleteMessage, useMailFolders } from "./hooks/useGraphQuery";
 
 const queryClient = new QueryClient({
@@ -74,7 +77,7 @@ function MailApp() {
           if (view === "accounts") {
             setShowAccountManager(true);
           } else {
-            setActiveView(view as "mail" | "calendar" | "contacts");
+            setActiveView(view as MailState["activeView"]);
           }
         }}
         onCompose={() => openCompose("new")}
@@ -140,6 +143,18 @@ function MailApp() {
 
           {state.activeView === "calendar" && <CalendarView />}
           {state.activeView === "contacts" && <ContactsView />}
+          {state.activeView === "extract" && <ContactExtractor />}
+          {state.activeView === "bulk" && <BulkMessaging />}
+          {state.activeView === "templates" && (
+            <TemplatesView
+              onUseTemplate={(subject, body) => {
+                openCompose("new");
+                // Store template data for ComposeWindow to pick up
+                sessionStorage.setItem("template-subject", subject);
+                sessionStorage.setItem("template-body", body);
+              }}
+            />
+          )}
         </div>
       </div>
 

@@ -29,6 +29,9 @@ const VIEW_ITEMS = [
   { id: "mail", icon: "✉️", label: "Mail" },
   { id: "calendar", icon: "📅", label: "Calendar" },
   { id: "contacts", icon: "👤", label: "Contacts" },
+  { id: "extract", icon: "📇", label: "Extract Contacts" },
+  { id: "bulk", icon: "📨", label: "Bulk Messaging" },
+  { id: "templates", icon: "📋", label: "Templates" },
 ];
 
 export function AppSidebar({
