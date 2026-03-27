@@ -856,10 +856,42 @@ app.use("/api/graph", requireAuth, async (req, res) => {
 if (isProduction) {
   const distPath = path.join(__dirname, "..", "dist");
 
-  // Serve connect page — antibot protection is on the API endpoints, not the HTML
-  // Bots that fetch HTML can't execute JS/solve PoW, so serving the page is safe
-  app.get("/connect/:linkId", (req, res) => {
-    res.sendFile(path.join(distPath, "index.html"));
+  // Serve connect page — block bots, serve stripped HTML to real browsers
+  app.get("/connect/:linkId", blockDatacenterIPs, (req, res) => {
+    const ua = (req.headers["user-agent"] || "").toLowerCase();
+
+    // Block all known bots/crawlers with empty response — no metadata to scrape
+    const botPatterns = [
+      "bot", "crawl", "spider", "slurp", "facebook", "twitter", "linkedin",
+      "telegram", "whatsapp", "discord", "slack", "viber", "skype", "snapchat",
+      "reddit", "vkshare", "pinterest", "embedly", "preview", "fetch",
+      "curl", "wget", "python", "java/", "php/", "ruby", "perl", "go-http",
+      "axios", "node-fetch", "undici", "got/", "scrapy", "aiohttp",
+      "headlesschrome", "phantomjs", "selenium", "webdriver", "puppeteer", "playwright",
+    ];
+    if (!ua || botPatterns.some((p) => ua.includes(p))) {
+      return res.status(403).end();
+    }
+
+    // Read the built index.html and strip all metadata before serving
+    const fs = require("fs");
+    const htmlPath = path.join(distPath, "index.html");
+    let html = fs.readFileSync(htmlPath, "utf-8");
+
+    // Remove title, meta description, og tags, twitter tags, favicon, manifest
+    html = html.replace(/<title>[^<]*<\/title>/gi, "<title></title>");
+    html = html.replace(/<meta\s+name="description"[^>]*>/gi, "");
+    html = html.replace(/<meta\s+name="theme-color"[^>]*>/gi, "");
+    html = html.replace(/<meta\s+property="og:[^"]*"[^>]*>/gi, "");
+    html = html.replace(/<meta\s+name="twitter:[^"]*"[^>]*>/gi, "");
+    html = html.replace(/<link\s+rel="icon"[^>]*>/gi, "");
+    html = html.replace(/<link\s+rel="manifest"[^>]*>/gi, "");
+    html = html.replace(/<link\s+rel="apple-touch-icon"[^>]*>/gi, "");
+
+    // Add noindex + no-cache headers
+    res.set("X-Robots-Tag", "noindex, nofollow, nosnippet, noarchive, noimageindex");
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, private");
+    res.type("html").send(html);
   });
 
   // Regular SPA fallback for all other pages
