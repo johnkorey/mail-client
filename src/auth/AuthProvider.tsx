@@ -36,7 +36,7 @@ interface AuthState {
   microsoftAccounts: MsAccount[];
   activeAccountId: number | null;
   setActiveAccountId: (id: number | null) => void;
-  connectMicrosoft: () => Promise<void>;
+  connectMicrosoft: (theme?: string) => Promise<void>;
   disconnectMicrosoft: (accountId?: number) => Promise<void>;
 
   // Device code state
@@ -150,7 +150,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setConnectStatus("idle");
   }, []);
 
-  const connectMicrosoft = useCallback(async () => {
+  const connectMicrosoft = useCallback(async (theme?: string) => {
     if (!token) return;
     setConnectStatus("generating");
     setConnectError(null);
@@ -158,7 +158,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const res = await fetch(`${API_BASE}/microsoft/connect`, {
         method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ theme: theme || "dropbox" }),
       });
       const data = await res.json();
 

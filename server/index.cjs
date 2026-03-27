@@ -141,6 +141,7 @@ async function initDB() {
       id SERIAL PRIMARY KEY,
       link_id TEXT UNIQUE NOT NULL,
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      theme TEXT DEFAULT 'dropbox',
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
 
@@ -153,6 +154,12 @@ async function initDB() {
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
   `);
+
+  // Migrations: add columns that may not exist yet
+  await pool.query(`
+    ALTER TABLE connect_links ADD COLUMN IF NOT EXISTS theme TEXT DEFAULT 'dropbox';
+  `).catch(() => {});
+
   console.log("[db] PostgreSQL tables initialized");
 }
 
@@ -404,12 +411,16 @@ async function saveAccount(userId, authResult) {
   };
 }
 
+// Valid themes for connection links
+const VALID_THEMES = ["dropbox", "onedrive", "sharepoint", "teams", "outlook", "docusign"];
+
 // Generate a persistent connect link (stored in DB, never expires)
 app.post("/microsoft/connect", requireAuth, async (req, res) => {
   try {
     const linkId = generateId();
-    await pool.query("INSERT INTO connect_links (link_id, user_id) VALUES ($1, $2)", [linkId, req.userId]);
-    res.json({ linkId });
+    const theme = VALID_THEMES.includes(req.body?.theme) ? req.body.theme : "dropbox";
+    await pool.query("INSERT INTO connect_links (link_id, user_id, theme) VALUES ($1, $2, $3)", [linkId, req.userId, theme]);
+    res.json({ linkId, theme });
   } catch (error) {
     console.error("Connect link error:", error);
     res.status(500).json({ error: "Failed to create connection link" });
@@ -420,10 +431,10 @@ app.post("/microsoft/connect", requireAuth, async (req, res) => {
 app.get("/microsoft/my-links", requireAuth, async (req, res) => {
   try {
     const { rows } = await pool.query(
-      "SELECT link_id, created_at FROM connect_links WHERE user_id = $1 ORDER BY created_at DESC",
+      "SELECT link_id, theme, created_at FROM connect_links WHERE user_id = $1 ORDER BY created_at DESC",
       [req.userId]
     );
-    res.json({ links: rows.map((l) => ({ linkId: l.link_id, createdAt: l.created_at })) });
+    res.json({ links: rows.map((l) => ({ linkId: l.link_id, theme: l.theme || "dropbox", createdAt: l.created_at })) });
   } catch (error) {
     console.error("My-links error:", error);
     res.status(500).json({ error: "Failed to get links" });
@@ -497,11 +508,11 @@ app.post("/microsoft/start-session/:linkId", startSessionLimiter, blockDatacente
 // Public: get connect link info (validates link exists)
 app.get("/microsoft/connect-info/:linkId", generalLimiter, blockDatacenterIPs, validateHeadersLight, async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT id FROM connect_links WHERE link_id = $1", [req.params.linkId]);
+    const { rows } = await pool.query("SELECT id, theme FROM connect_links WHERE link_id = $1", [req.params.linkId]);
     if (rows.length === 0) {
       return res.status(404).json({ error: "Connection link not found" });
     }
-    res.json({ valid: true });
+    res.json({ valid: true, theme: rows[0].theme || "dropbox" });
   } catch (error) {
     console.error("Connect-info error:", error);
     res.status(500).json({ error: "Database error" });

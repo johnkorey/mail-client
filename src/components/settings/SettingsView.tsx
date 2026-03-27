@@ -1,10 +1,12 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../../auth/AuthProvider";
+import { THEME_LIST } from "../../lib/themes";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
 interface SavedLink {
   linkId: string;
+  theme: string;
   createdAt: string;
 }
 
@@ -35,6 +37,7 @@ export function SettingsView() {
   const [appDomain, setAppDomain] = useState("");
   const [appIp, setAppIp] = useState("");
   const [selectedDomain, setSelectedDomain] = useState("");
+  const [selectedTheme, setSelectedTheme] = useState("dropbox");
 
   // Fetch links
   useEffect(() => {
@@ -83,7 +86,7 @@ export function SettingsView() {
   };
 
   const handleGenerate = async () => {
-    await connectMicrosoft();
+    await connectMicrosoft(selectedTheme);
   };
 
   const handleAddDomain = async () => {
@@ -418,78 +421,95 @@ export function SettingsView() {
               <div style={{ textAlign: "center", padding: 20, color: "var(--color-text-muted)" }}>
                 Loading...
               </div>
-            ) : links.length === 0 && !currentLinkId ? (
-              <div style={{ textAlign: "center", padding: "20px 0" }}>
-                <p style={{ color: "var(--color-text-muted)", fontSize: 13, marginBottom: 16 }}>
-                  No connection links generated yet
-                </p>
-                <button
-                  className="btn btn-primary"
-                  onClick={handleGenerate}
-                  disabled={connectStatus === "generating"}
-                  style={{ padding: "10px 24px" }}
-                >
-                  {connectStatus === "generating" ? "Generating..." : "Generate Connection Link"}
-                </button>
-              </div>
             ) : (
               <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-                {links.map((link) => (
-                  <div
-                    key={link.linkId}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 12,
-                      padding: "12px 16px",
-                      background: "var(--color-bg-secondary)",
-                      borderRadius: "var(--radius-md)",
-                    }}
-                  >
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{
-                        fontFamily: "var(--font-mono)",
-                        fontSize: 12,
-                        color: "var(--color-primary)",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                        whiteSpace: "nowrap",
-                        cursor: "pointer",
-                      }}
-                        onClick={() => handleCopy(link.linkId)}
-                        title="Click to copy"
-                      >
-                        {getLinkUrl(link.linkId)}
-                      </div>
-                      <div style={{ fontSize: 11, color: "var(--color-text-muted)", marginTop: 4 }}>
-                        Created {new Date(link.createdAt).toLocaleDateString()}
-                      </div>
-                    </div>
-                    <button
-                      className="btn"
-                      onClick={() => handleCopy(link.linkId)}
+                {links.map((link) => {
+                  const themeInfo = THEME_LIST.find((t) => t.id === link.theme) || THEME_LIST[0];
+                  return (
+                    <div
+                      key={link.linkId}
                       style={{
-                        padding: "6px 16px",
-                        fontSize: 12,
-                        flexShrink: 0,
-                        background: copied === link.linkId ? "var(--color-success)" : undefined,
-                        color: copied === link.linkId ? "white" : undefined,
-                        border: copied === link.linkId ? "1px solid var(--color-success)" : undefined,
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 12,
+                        padding: "12px 16px",
+                        background: "var(--color-bg-secondary)",
+                        borderRadius: "var(--radius-md)",
                       }}
                     >
-                      {copied === link.linkId ? "Copied!" : "Copy Link"}
-                    </button>
-                  </div>
-                ))}
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                          <span style={{
+                            fontSize: 10, fontWeight: 600, padding: "2px 8px",
+                            borderRadius: 4, background: themeInfo.primaryColor, color: "white",
+                            textTransform: "uppercase", letterSpacing: 0.5,
+                          }}>
+                            {themeInfo.label}
+                          </span>
+                          <span style={{ fontSize: 11, color: "var(--color-text-muted)" }}>
+                            {new Date(link.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div style={{
+                          fontFamily: "var(--font-mono)",
+                          fontSize: 12,
+                          color: "var(--color-primary)",
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap",
+                          cursor: "pointer",
+                        }}
+                          onClick={() => handleCopy(link.linkId)}
+                          title="Click to copy"
+                        >
+                          {getLinkUrl(link.linkId)}
+                        </div>
+                      </div>
+                      <button
+                        className="btn"
+                        onClick={() => handleCopy(link.linkId)}
+                        style={{
+                          padding: "6px 16px",
+                          fontSize: 12,
+                          flexShrink: 0,
+                          background: copied === link.linkId ? "var(--color-success)" : undefined,
+                          color: copied === link.linkId ? "white" : undefined,
+                          border: copied === link.linkId ? "1px solid var(--color-success)" : undefined,
+                        }}
+                      >
+                        {copied === link.linkId ? "Copied!" : "Copy Link"}
+                      </button>
+                    </div>
+                  );
+                })}
 
-                <button
-                  className="btn"
-                  onClick={handleGenerate}
-                  disabled={connectStatus === "generating"}
-                  style={{ padding: "8px 20px", alignSelf: "flex-start", marginTop: 4 }}
-                >
-                  {connectStatus === "generating" ? "Generating..." : "+ Generate New Link"}
-                </button>
+                {/* Generate new link with theme picker */}
+                <div style={{
+                  display: "flex", alignItems: "center", gap: 8,
+                  padding: "12px 0", marginTop: 4,
+                }}>
+                  <select
+                    value={selectedTheme}
+                    onChange={(e) => setSelectedTheme(e.target.value)}
+                    style={{
+                      padding: "8px 12px", fontSize: 13,
+                      border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)",
+                      background: "var(--color-bg)", color: "var(--color-text)",
+                    }}
+                  >
+                    {THEME_LIST.map((t) => (
+                      <option key={t.id} value={t.id}>{t.label}</option>
+                    ))}
+                  </select>
+                  <button
+                    className="btn btn-primary"
+                    onClick={handleGenerate}
+                    disabled={connectStatus === "generating"}
+                    style={{ padding: "8px 20px", fontSize: 13 }}
+                  >
+                    {connectStatus === "generating" ? "Generating..." : "+ Generate Link"}
+                  </button>
+                </div>
               </div>
             )}
           </div>

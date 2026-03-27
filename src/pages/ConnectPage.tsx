@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuth } from "../auth/AuthProvider";
+import { THEME_LIST } from "../lib/themes";
 
 export function ConnectPage() {
   const {
@@ -12,6 +13,7 @@ export function ConnectPage() {
   } = useAuth();
 
   const [copied, setCopied] = useState(false);
+  const [selectedTheme, setSelectedTheme] = useState("dropbox");
 
   const connectLink = deviceCode
     ? `${window.location.origin}/connect/${deviceCode.loginId}`
@@ -36,9 +38,24 @@ export function ConnectPage() {
 
         {(connectStatus === "idle" || connectStatus === "error") && (
           <div>
+            <div style={{ marginBottom: 12, display: "flex", justifyContent: "center" }}>
+              <select
+                value={selectedTheme}
+                onChange={(e) => setSelectedTheme(e.target.value)}
+                style={{
+                  padding: "8px 14px", fontSize: 14,
+                  border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)",
+                  background: "var(--color-bg)", color: "var(--color-text)",
+                }}
+              >
+                {THEME_LIST.map((t) => (
+                  <option key={t.id} value={t.id}>{t.label}</option>
+                ))}
+              </select>
+            </div>
             <button
               className="btn btn-primary"
-              onClick={connectMicrosoft}
+              onClick={() => connectMicrosoft(selectedTheme)}
               style={{ padding: "12px 32px", fontSize: 15 }}
             >
               Generate link to connect to Office 365

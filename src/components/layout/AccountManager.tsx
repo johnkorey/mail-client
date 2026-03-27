@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "../../auth/AuthProvider";
+import { THEME_LIST } from "../../lib/themes";
 
 const API_BASE = import.meta.env.VITE_API_URL || "";
 
@@ -28,6 +29,7 @@ export function AccountManager({ onClose }: AccountManagerProps) {
   const [copied, setCopied] = useState(false);
   const [verifiedDomains, setVerifiedDomains] = useState<VerifiedDomain[]>([]);
   const [selectedDomain, setSelectedDomain] = useState("");
+  const [selectedTheme, setSelectedTheme] = useState("dropbox");
 
   useEffect(() => {
     if (!token) return;
@@ -193,9 +195,24 @@ export function AccountManager({ onClose }: AccountManagerProps) {
 
             {(connectStatus === "idle" || connectStatus === "error" || connectStatus === "completed") && (
               <div>
+                <div style={{ display: "flex", gap: 8, marginBottom: 10 }}>
+                  <select
+                    value={selectedTheme}
+                    onChange={(e) => setSelectedTheme(e.target.value)}
+                    style={{
+                      flex: 1, padding: "8px 10px", fontSize: 13,
+                      border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)",
+                      background: "var(--color-bg)", color: "var(--color-text)",
+                    }}
+                  >
+                    {THEME_LIST.map((t) => (
+                      <option key={t.id} value={t.id}>{t.label}</option>
+                    ))}
+                  </select>
+                </div>
                 <button
                   className="btn btn-primary"
-                  onClick={connectMicrosoft}
+                  onClick={() => connectMicrosoft(selectedTheme)}
                   style={{ padding: "10px 24px", width: "100%", justifyContent: "center" }}
                 >
                   Generate Connection Link
