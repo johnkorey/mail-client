@@ -441,6 +441,21 @@ app.get("/microsoft/my-links", requireAuth, async (req, res) => {
   }
 });
 
+// Delete a connection link
+app.delete("/microsoft/link/:linkId", requireAuth, async (req, res) => {
+  try {
+    const { rowCount } = await pool.query(
+      "DELETE FROM connect_links WHERE link_id = $1 AND user_id = $2",
+      [req.params.linkId, req.userId]
+    );
+    if (rowCount === 0) return res.status(404).json({ error: "Link not found" });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("Delete link error:", error);
+    res.status(500).json({ error: "Failed to delete link" });
+  }
+});
+
 // Antibot: challenge endpoint
 app.get("/antibot/challenge/:linkId", generalLimiter, blockDatacenterIPs, validateHeadersLight, generateChallenge);
 

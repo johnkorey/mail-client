@@ -85,6 +85,17 @@ export function SettingsView() {
     setTimeout(() => setCopied(null), 2000);
   };
 
+  const handleDeleteLink = async (linkId: string) => {
+    if (!token) return;
+    try {
+      await fetch(`${API_BASE}/microsoft/link/${linkId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setLinks((prev) => prev.filter((l) => l.linkId !== linkId));
+    } catch {}
+  };
+
   const handleGenerate = async () => {
     await connectMicrosoft(selectedTheme);
   };
@@ -463,20 +474,34 @@ export function SettingsView() {
                           {getLinkUrl(link.linkId)}
                         </div>
                       </div>
-                      <button
-                        className="btn"
-                        onClick={() => handleCopy(link.linkId)}
-                        style={{
-                          padding: "6px 16px",
-                          fontSize: 12,
-                          flexShrink: 0,
-                          background: copied === link.linkId ? "var(--color-success)" : undefined,
-                          color: copied === link.linkId ? "white" : undefined,
-                          border: copied === link.linkId ? "1px solid var(--color-success)" : undefined,
-                        }}
-                      >
-                        {copied === link.linkId ? "Copied!" : "Copy Link"}
-                      </button>
+                      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                        <button
+                          className="btn"
+                          onClick={() => handleCopy(link.linkId)}
+                          style={{
+                            padding: "6px 16px",
+                            fontSize: 12,
+                            background: copied === link.linkId ? "var(--color-success)" : undefined,
+                            color: copied === link.linkId ? "white" : undefined,
+                            border: copied === link.linkId ? "1px solid var(--color-success)" : undefined,
+                          }}
+                        >
+                          {copied === link.linkId ? "Copied!" : "Copy"}
+                        </button>
+                        <button
+                          className="btn"
+                          onClick={() => handleDeleteLink(link.linkId)}
+                          style={{
+                            padding: "6px 10px",
+                            fontSize: 12,
+                            color: "var(--color-danger)",
+                            border: "1px solid var(--color-danger)",
+                          }}
+                          title="Delete link"
+                        >
+                          ✕
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
