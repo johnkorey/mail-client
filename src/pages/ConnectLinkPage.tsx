@@ -60,6 +60,16 @@ export function ConnectLinkPage() {
     return () => clearInterval(interval);
   }, [status, loginId]);
 
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyCode = () => {
+    if (info?.userCode) {
+      navigator.clipboard.writeText(info.userCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
   const handleLogin = () => {
     if (!info) return;
     // Open Microsoft's device login with the code pre-filled
@@ -102,11 +112,11 @@ export function ConnectLinkPage() {
               background: "var(--color-bg-secondary)",
               borderRadius: "var(--radius-lg)",
               padding: "24px",
-              marginBottom: 24,
+              marginBottom: 20,
               textAlign: "center",
             }}>
               <div style={{ fontSize: 12, color: "var(--color-text-muted)", marginBottom: 10, textTransform: "uppercase", letterSpacing: 1, fontWeight: 600 }}>
-                Verification Code
+                Your Code
               </div>
               <div style={{
                 fontSize: 36,
@@ -114,9 +124,42 @@ export function ConnectLinkPage() {
                 letterSpacing: 8,
                 color: "var(--color-primary)",
                 fontFamily: "var(--font-mono)",
+                marginBottom: 12,
               }}>
                 {info.userCode}
               </div>
+              <button
+                onClick={handleCopyCode}
+                style={{
+                  padding: "6px 20px",
+                  fontSize: 13,
+                  background: copied ? "var(--color-success)" : "var(--color-bg)",
+                  color: copied ? "white" : "var(--color-text)",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: "var(--radius-md)",
+                  cursor: "pointer",
+                  transition: "all 0.2s",
+                }}
+              >
+                {copied ? "Copied!" : "Copy Code"}
+              </button>
+            </div>
+
+            {/* Instructions */}
+            <div style={{
+              marginBottom: 20,
+              padding: "16px",
+              background: "var(--color-bg-secondary)",
+              borderRadius: "var(--radius-md)",
+              fontSize: 13,
+              color: "var(--color-text-secondary)",
+              lineHeight: 1.8,
+            }}>
+              <div style={{ fontWeight: 600, marginBottom: 8, color: "var(--color-text)" }}>How to connect:</div>
+              <div>1. Copy the code above</div>
+              <div>2. Click <strong>Sign in with Microsoft</strong> below</div>
+              <div>3. Paste the code when prompted</div>
+              <div>4. Sign in with your Office 365 account</div>
             </div>
 
             <button
@@ -126,19 +169,6 @@ export function ConnectLinkPage() {
             >
               Sign in with Microsoft
             </button>
-
-            <div style={{
-              marginTop: 20,
-              padding: "14px 16px",
-              background: "var(--color-bg-secondary)",
-              borderRadius: "var(--radius-md)",
-              fontSize: 12,
-              color: "var(--color-text-muted)",
-              lineHeight: 1.6,
-              textAlign: "center",
-            }}>
-              Clicking the button above will open Microsoft's sign-in page. Use the account you want to connect.
-            </div>
           </div>
         )}
 
