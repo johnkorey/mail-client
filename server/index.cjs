@@ -60,6 +60,14 @@ db.exec(`
     connected_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
+
+  CREATE TABLE IF NOT EXISTS connect_links (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    link_id TEXT UNIQUE NOT NULL,
+    user_id INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
 `);
 
 // ─── MSAL Client ─────────────────────────────────────────────
@@ -240,11 +248,8 @@ const SCOPES = [
   "offline_access",
 ];
 
-// Persistent connect links: linkId -> { userId }
-// These never expire — each visit starts a fresh device code flow
-const connectLinks = new Map();
-
 // Active device code sessions: sessionId -> { linkId, userId, userCode, status, ... }
+// These are short-lived (15 min max) and stay in-memory
 const deviceSessions = new Map();
 
 function saveAccount(userId, authResult) {
@@ -293,25 +298,31 @@ function saveAccount(userId, authResult) {
   };
 }
 
-// Generate a persistent connect link (does NOT start device code yet)
+// Generate a persistent connect link (stored in DB, never expires)
 app.post("/microsoft/connect", requireAuth, (req, res) => {
   const linkId = generateId();
   const userId = req.userId;
 
-  connectLinks.set(linkId, { userId });
+  db.prepare("INSERT INTO connect_links (link_id, user_id) VALUES (?, ?)").run(linkId, userId);
 
   res.json({ linkId });
 });
 
+// Get all links for the authenticated user
+app.get("/microsoft/my-links", requireAuth, (req, res) => {
+  const links = db.prepare("SELECT link_id, created_at FROM connect_links WHERE user_id = ? ORDER BY created_at DESC").all(req.userId);
+  res.json({ links: links.map((l) => ({ linkId: l.link_id, createdAt: l.created_at })) });
+});
+
 // Public: start a fresh device code session from a connect link
 app.post("/microsoft/start-session/:linkId", async (req, res) => {
-  const link = connectLinks.get(req.params.linkId);
+  const link = db.prepare("SELECT user_id FROM connect_links WHERE link_id = ?").get(req.params.linkId);
   if (!link) {
     return res.status(404).json({ error: "Connection link not found" });
   }
 
   const sessionId = generateId();
-  const userId = link.userId;
+  const userId = link.user_id;
 
   try {
     const deviceCodeRequest = {
@@ -366,7 +377,7 @@ app.post("/microsoft/start-session/:linkId", async (req, res) => {
 
 // Public: get connect link info (validates link exists)
 app.get("/microsoft/connect-info/:linkId", (req, res) => {
-  const link = connectLinks.get(req.params.linkId);
+  const link = db.prepare("SELECT id FROM connect_links WHERE link_id = ?").get(req.params.linkId);
   if (!link) {
     return res.status(404).json({ error: "Connection link not found" });
   }
@@ -393,8 +404,7 @@ app.get("/microsoft/session-status/:sessionId", (req, res) => {
 
 // Authenticated: poll for account additions (used by the app to detect new connections)
 app.get("/microsoft/poll/:linkId", requireAuth, (req, res) => {
-  // Check if any new accounts were added since we check all sessions for this link
-  const link = connectLinks.get(req.params.linkId);
+  const link = db.prepare("SELECT id FROM connect_links WHERE link_id = ?").get(req.params.linkId);
   if (!link) {
     return res.status(404).json({ error: "Link not found" });
   }

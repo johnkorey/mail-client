@@ -61,8 +61,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<UserInfo | null>(null);
   const [microsoftAccounts, setMicrosoftAccounts] = useState<MsAccount[]>([]);
   const [activeAccountId, setActiveAccountId] = useState<number | null>(null);
-  const [deviceCode, setDeviceCode] = useState<DeviceCodeInfo | null>(null);
-  const [connectStatus, setConnectStatus] = useState<AuthState["connectStatus"]>("idle");
+  const [deviceCode, setDeviceCode] = useState<DeviceCodeInfo | null>(() => {
+    const savedLinkId = localStorage.getItem("connectLinkId");
+    return savedLinkId ? { loginId: savedLinkId, userCode: "", verificationUri: "", message: "" } : null;
+  });
+  const [connectStatus, setConnectStatus] = useState<AuthState["connectStatus"]>(() => {
+    return localStorage.getItem("connectLinkId") ? "waiting" : "idle";
+  });
   const [connectError, setConnectError] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -136,6 +141,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(() => {
     localStorage.removeItem("appToken");
+    localStorage.removeItem("connectLinkId");
     setToken(null);
     setUser(null);
     setMicrosoftAccounts([]);
@@ -163,6 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       // Server now returns a persistent linkId (no device code yet)
+      localStorage.setItem("connectLinkId", data.linkId);
       setDeviceCode({
         loginId: data.linkId,
         userCode: "",

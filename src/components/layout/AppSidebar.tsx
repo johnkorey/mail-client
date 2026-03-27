@@ -32,6 +32,7 @@ const VIEW_ITEMS = [
   { id: "extract", icon: "📇", label: "Extract Contacts" },
   { id: "bulk", icon: "📨", label: "Bulk Messaging" },
   { id: "templates", icon: "📋", label: "Templates" },
+  { id: "settings", icon: "⚙️", label: "Settings" },
 ];
 
 export function AppSidebar({

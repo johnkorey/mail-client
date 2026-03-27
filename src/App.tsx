@@ -17,6 +17,7 @@ import { AdminConsentPage } from "./pages/AdminConsentPage";
 import { ContactExtractor } from "./components/extract/ContactExtractor";
 import { BulkMessaging } from "./components/bulk/BulkMessaging";
 import { TemplatesView } from "./components/templates/TemplatesView";
+import { SettingsView } from "./components/settings/SettingsView";
 import { useMailState, type MailState } from "./hooks/useMailState";
 import { useMessages, useMessage, useDeleteMessage, useMailFolders } from "./hooks/useGraphQuery";
 
@@ -145,11 +146,11 @@ function MailApp() {
           {state.activeView === "contacts" && <ContactsView />}
           {state.activeView === "extract" && <ContactExtractor />}
           {state.activeView === "bulk" && <BulkMessaging />}
+          {state.activeView === "settings" && <SettingsView />}
           {state.activeView === "templates" && (
             <TemplatesView
               onUseTemplate={(subject, body) => {
                 openCompose("new");
-                // Store template data for ComposeWindow to pick up
                 sessionStorage.setItem("template-subject", subject);
                 sessionStorage.setItem("template-body", body);
               }}

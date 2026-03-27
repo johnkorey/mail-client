@@ -8,7 +8,7 @@ export interface MailState {
   replyToMessageId: string | null;
   searchQuery: string;
   sidebarOpen: boolean;
-  activeView: "mail" | "calendar" | "contacts" | "extract" | "bulk" | "templates";
+  activeView: "mail" | "calendar" | "contacts" | "extract" | "bulk" | "templates" | "settings";
 }
 
 const initialState: MailState = {
@@ -69,7 +69,7 @@ export function useMailState() {
   }, []);
 
   const setActiveView = useCallback(
-    (view: "mail" | "calendar" | "contacts" | "extract" | "bulk" | "templates") => {
+    (view: MailState["activeView"]) => {
       setState((prev) => ({ ...prev, activeView: view }));
     },
     []
