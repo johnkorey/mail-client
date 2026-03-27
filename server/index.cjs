@@ -201,53 +201,7 @@ function requireAuth(req, res, next) {
   }
 }
 
-// ─── Auth Routes: Register & Login ──────────────────────────
-
-app.post("/auth/register", async (req, res) => {
-  const { username, email, password, displayName } = req.body;
-
-  if (!username || !email || !password) {
-    return res.status(400).json({ error: "Username, email, and password are required" });
-  }
-
-  if (password.length < 6) {
-    return res.status(400).json({ error: "Password must be at least 6 characters" });
-  }
-
-  try {
-    const { rows: existing } = await pool.query(
-      "SELECT id FROM users WHERE username = $1 OR email = $2", [username, email]
-    );
-    if (existing.length > 0) {
-      return res.status(409).json({ error: "Username or email already exists" });
-    }
-
-    const passwordHash = await bcrypt.hash(password, 10);
-    const { rows } = await pool.query(
-      "INSERT INTO users (username, email, password_hash, display_name) VALUES ($1, $2, $3, $4) RETURNING id",
-      [username, email, passwordHash, displayName || username]
-    );
-
-    const token = jwt.sign(
-      { userId: rows[0].id, username },
-      JWT_SECRET,
-      { expiresIn: "7d" }
-    );
-
-    res.json({
-      token,
-      user: {
-        id: rows[0].id,
-        username,
-        email,
-        displayName: displayName || username,
-      },
-    });
-  } catch (error) {
-    console.error("Register error:", error);
-    res.status(500).json({ error: "Registration failed" });
-  }
-});
+// ─── Auth Routes: Login ─────────────────────────────────────
 
 app.post("/auth/login", async (req, res) => {
   const { username, password } = req.body;

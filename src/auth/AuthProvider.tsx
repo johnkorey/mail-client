@@ -28,7 +28,6 @@ interface AuthState {
   user: UserInfo | null;
   token: string | null;
   login: (username: string, password: string) => Promise<void>;
-  register: (username: string, email: string, password: string, displayName?: string) => Promise<void>;
   logout: () => void;
 
   // Microsoft connection
@@ -97,25 +96,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(null);
         });
     }
-  }, []);
-
-  const register = useCallback(async (username: string, email: string, password: string, displayName?: string) => {
-    setAuthError(null);
-    const res = await fetch(`${API_BASE}/auth/register`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ username, email, password, displayName }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      setAuthError(data.error);
-      throw new Error(data.error);
-    }
-    localStorage.setItem("appToken", data.token);
-    setToken(data.token);
-    setUser(data.user);
-    setMicrosoftAccounts([]);
-    setActiveAccountId(null);
   }, []);
 
   const login = useCallback(async (username: string, password: string) => {
@@ -240,7 +220,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         token,
         login,
-        register,
         logout,
         microsoftConnected,
         microsoftAccounts,
