@@ -1,12 +1,20 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../../auth/AuthProvider";
+
+const API_BASE = import.meta.env.VITE_API_URL || "";
 
 interface AccountManagerProps {
   onClose: () => void;
 }
 
+interface VerifiedDomain {
+  id: number;
+  domain: string;
+}
+
 export function AccountManager({ onClose }: AccountManagerProps) {
   const {
+    token,
     microsoftAccounts,
     activeAccountId,
     setActiveAccountId,
@@ -18,10 +26,31 @@ export function AccountManager({ onClose }: AccountManagerProps) {
   } = useAuth();
 
   const [copied, setCopied] = useState(false);
+  const [verifiedDomains, setVerifiedDomains] = useState<VerifiedDomain[]>([]);
+  const [selectedDomain, setSelectedDomain] = useState("default");
 
-  const connectLink = deviceCode
-    ? `${window.location.origin}/connect/${deviceCode.loginId}`
-    : "";
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API_BASE}/domains/list`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        const verified = (data.domains || []).filter((d: any) => d.dns_verified && d.ssl_verified);
+        setVerifiedDomains(verified);
+      })
+      .catch(() => {});
+  }, [token]);
+
+  const getConnectLink = () => {
+    if (!deviceCode?.loginId) return "";
+    if (selectedDomain === "default") {
+      return `${window.location.origin}/connect/${deviceCode.loginId}`;
+    }
+    return `https://${selectedDomain}/connect/${deviceCode.loginId}`;
+  };
+
+  const connectLink = getConnectLink();
 
   const handleCopyLink = () => {
     if (connectLink) {
@@ -210,6 +239,26 @@ export function AccountManager({ onClose }: AccountManagerProps) {
                   Copy this link and open it in a browser where your Office 365
                   email is signed in:
                 </p>
+
+                {verifiedDomains.length > 0 && (
+                  <div style={{ marginBottom: 10, display: "flex", alignItems: "center", gap: 8 }}>
+                    <label style={{ fontSize: 12, color: "var(--color-text-muted)", flexShrink: 0 }}>Domain:</label>
+                    <select
+                      value={selectedDomain}
+                      onChange={(e) => setSelectedDomain(e.target.value)}
+                      style={{
+                        flex: 1, padding: "6px 10px", fontSize: 13,
+                        border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)",
+                        background: "var(--color-bg)", color: "var(--color-text)",
+                      }}
+                    >
+                      <option value="default">{window.location.host} (default)</option>
+                      {verifiedDomains.map((d) => (
+                        <option key={d.id} value={d.domain}>{d.domain}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div
                   style={{

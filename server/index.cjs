@@ -11,11 +11,35 @@ const app = express();
 app.set("trust proxy", 1);
 
 const isProduction = process.env.NODE_ENV === "production";
-const corsOrigins = isProduction
+const staticOrigins = isProduction
   ? (process.env.CORS_ORIGIN || "").split(",").map((s) => s.trim()).filter(Boolean)
   : ["http://localhost:5173", "http://localhost:5174"];
 
-app.use(cors({ origin: corsOrigins.length > 0 ? corsOrigins : true, credentials: true }));
+// Dynamic CORS: static origins + verified custom domains from DB (cached)
+let verifiedDomainOrigins = [];
+let domainCacheTime = 0;
+const DOMAIN_CACHE_TTL = 60_000; // refresh every 60s
+
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (non-browser, same-origin)
+    if (!origin) return callback(null, true);
+    // Allow static origins
+    if (staticOrigins.length === 0) return callback(null, true);
+    if (staticOrigins.includes(origin)) return callback(null, true);
+    // Refresh verified domain cache if stale
+    if (Date.now() - domainCacheTime > DOMAIN_CACHE_TTL) {
+      try {
+        const rows = db.prepare("SELECT domain FROM custom_domains WHERE dns_verified = 1 AND ssl_verified = 1").all();
+        verifiedDomainOrigins = rows.map((r) => `https://${r.domain}`);
+        domainCacheTime = Date.now();
+      } catch { /* table may not exist yet */ }
+    }
+    if (verifiedDomainOrigins.includes(origin)) return callback(null, true);
+    callback(null, false);
+  },
+  credentials: true,
+}));
 app.use(express.json());
 
 const {
@@ -41,6 +65,7 @@ if (isProduction) {
 const JWT_SECRET = process.env.JWT_SECRET || "mail-client-secret-change-in-production";
 const AZURE_CLIENT_ID = process.env.VITE_AZURE_CLIENT_ID;
 const AZURE_TENANT_ID = process.env.VITE_AZURE_TENANT_ID || "common";
+const APP_DOMAIN = process.env.APP_DOMAIN || "";
 
 // ─── Database ────────────────────────────────────────────────
 
@@ -78,6 +103,16 @@ db.exec(`
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     link_id TEXT UNIQUE NOT NULL,
     user_id INTEGER NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS custom_domains (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    domain TEXT UNIQUE NOT NULL,
+    dns_verified INTEGER DEFAULT 0,
+    ssl_verified INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
   );
@@ -450,6 +485,114 @@ app.post("/microsoft/disconnect", requireAuth, (req, res) => {
   } else {
     db.prepare("DELETE FROM microsoft_accounts WHERE user_id = ?").run(req.userId);
   }
+  res.json({ ok: true });
+});
+
+// ─── Custom Domains ──────────────────────────────────────────
+
+const dns = require("dns");
+const https = require("https");
+
+app.get("/domains/list", requireAuth, (req, res) => {
+  const domains = db.prepare("SELECT * FROM custom_domains WHERE user_id = ? ORDER BY created_at DESC").all(req.userId);
+  res.json({ domains, appDomain: APP_DOMAIN });
+});
+
+app.post("/domains/add", requireAuth, (req, res) => {
+  const { domain } = req.body;
+  if (!domain || typeof domain !== "string") {
+    return res.status(400).json({ error: "Domain is required" });
+  }
+
+  // Clean and validate domain
+  const cleanDomain = domain.trim().toLowerCase().replace(/^https?:\/\//, "").replace(/\/+$/, "");
+  if (!/^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$/.test(cleanDomain)) {
+    return res.status(400).json({ error: "Invalid domain format" });
+  }
+
+  try {
+    db.prepare("INSERT INTO custom_domains (user_id, domain) VALUES (?, ?)").run(req.userId, cleanDomain);
+    const inserted = db.prepare("SELECT * FROM custom_domains WHERE domain = ?").get(cleanDomain);
+    res.json({
+      domain: inserted,
+      appDomain: APP_DOMAIN,
+      instructions: `Add a CNAME record pointing "${cleanDomain}" to "${APP_DOMAIN}"`,
+    });
+  } catch (err) {
+    if (err.message?.includes("UNIQUE")) {
+      return res.status(409).json({ error: "Domain already exists" });
+    }
+    res.status(500).json({ error: "Failed to add domain" });
+  }
+});
+
+app.post("/domains/verify-dns/:domainId", requireAuth, async (req, res) => {
+  const domain = db.prepare("SELECT * FROM custom_domains WHERE id = ? AND user_id = ?").get(req.params.domainId, req.userId);
+  if (!domain) return res.status(404).json({ error: "Domain not found" });
+
+  try {
+    // Check CNAME records
+    const cnames = await dns.promises.resolveCname(domain.domain).catch(() => []);
+    const aRecords = await dns.promises.resolve4(domain.domain).catch(() => []);
+    const appARecords = APP_DOMAIN ? await dns.promises.resolve4(APP_DOMAIN).catch(() => []) : [];
+
+    // Verify CNAME points to our app domain, or A records match
+    const cnameMatch = APP_DOMAIN && cnames.some((c) => c.toLowerCase().replace(/\.$/, "") === APP_DOMAIN.toLowerCase());
+    const aMatch = appARecords.length > 0 && aRecords.some((a) => appARecords.includes(a));
+
+    if (cnameMatch || aMatch) {
+      db.prepare("UPDATE custom_domains SET dns_verified = 1 WHERE id = ?").run(domain.id);
+      res.json({ verified: true, method: cnameMatch ? "CNAME" : "A record" });
+    } else {
+      res.json({
+        verified: false,
+        cnames,
+        aRecords,
+        expected: APP_DOMAIN,
+        hint: `Add a CNAME record pointing "${domain.domain}" to "${APP_DOMAIN}"`,
+      });
+    }
+  } catch (err) {
+    res.json({ verified: false, error: "DNS lookup failed. Check that the domain exists and DNS has propagated." });
+  }
+});
+
+app.post("/domains/verify-ssl/:domainId", requireAuth, (req, res) => {
+  const domain = db.prepare("SELECT * FROM custom_domains WHERE id = ? AND user_id = ?").get(req.params.domainId, req.userId);
+  if (!domain) return res.status(404).json({ error: "Domain not found" });
+
+  if (!domain.dns_verified) {
+    return res.status(400).json({ error: "DNS must be verified before checking SSL" });
+  }
+
+  const reqHttps = https.request(
+    { hostname: domain.domain, port: 443, method: "HEAD", timeout: 10000 },
+    (response) => {
+      const cert = response.socket.getPeerCertificate();
+      if (cert && cert.subject) {
+        db.prepare("UPDATE custom_domains SET ssl_verified = 1 WHERE id = ?").run(domain.id);
+        res.json({ verified: true, issuer: cert.issuer?.O || "Unknown", validTo: cert.valid_to });
+      } else {
+        res.json({ verified: false, error: "No valid SSL certificate found" });
+      }
+    }
+  );
+
+  reqHttps.on("error", (err) => {
+    res.json({ verified: false, error: `SSL check failed: ${err.message}. Make sure your domain has an SSL certificate installed.` });
+  });
+
+  reqHttps.on("timeout", () => {
+    reqHttps.destroy();
+    res.json({ verified: false, error: "SSL check timed out. The domain may not be reachable over HTTPS." });
+  });
+
+  reqHttps.end();
+});
+
+app.delete("/domains/:domainId", requireAuth, (req, res) => {
+  const result = db.prepare("DELETE FROM custom_domains WHERE id = ? AND user_id = ?").run(req.params.domainId, req.userId);
+  if (result.changes === 0) return res.status(404).json({ error: "Domain not found" });
   res.json({ ok: true });
 });
 
