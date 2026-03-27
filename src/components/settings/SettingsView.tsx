@@ -171,8 +171,6 @@ export function SettingsView() {
     }
   }, [verifiedDomains.length]);
 
-  const currentLinkId = deviceCode?.loginId;
-
   return (
     <div style={{ height: "100%", overflowY: "auto" }}>
       <div style={{ maxWidth: 640, margin: "0 auto", padding: "32px 24px" }}>
