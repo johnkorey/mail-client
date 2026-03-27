@@ -42,6 +42,15 @@ app.use(cors({
 }));
 app.use(express.json());
 
+// Auto-detect server domain from Host header
+app.use((req, res, next) => {
+  if (!detectedDomain && req.hostname && req.hostname !== "localhost" && !req.hostname.match(/^\d+\.\d+\.\d+\.\d+$/)) {
+    detectedDomain = req.hostname;
+    console.log(`[auto-detect] Server domain: ${detectedDomain}`);
+  }
+  next();
+});
+
 const {
   generalLimiter,
   startSessionLimiter,
@@ -67,6 +76,35 @@ const AZURE_CLIENT_ID = process.env.VITE_AZURE_CLIENT_ID;
 const AZURE_TENANT_ID = process.env.VITE_AZURE_TENANT_ID || "common";
 const APP_DOMAIN = process.env.APP_DOMAIN || "";
 const APP_IP = process.env.APP_IP || "";
+
+// Auto-detect server domain and IP from first request
+let detectedDomain = APP_DOMAIN;
+let detectedIp = APP_IP;
+
+function getAppDomain() { return APP_DOMAIN || detectedDomain; }
+function getAppIp() { return APP_IP || detectedIp; }
+
+// Auto-detect on startup: resolve own public IP
+(async () => {
+  try {
+    if (!APP_IP) {
+      const https = require("https");
+      const ip = await new Promise((resolve, reject) => {
+        https.get("https://api.ipify.org", (resp) => {
+          let data = "";
+          resp.on("data", (c) => data += c);
+          resp.on("end", () => resolve(data.trim()));
+        }).on("error", reject);
+      });
+      if (ip && /^\d+\.\d+\.\d+\.\d+$/.test(ip)) {
+        detectedIp = ip;
+        console.log(`[auto-detect] Server public IP: ${ip}`);
+      }
+    }
+  } catch (e) {
+    console.log("[auto-detect] Could not detect public IP:", e.message);
+  }
+})();
 
 // ─── Database ────────────────────────────────────────────────
 
@@ -496,7 +534,7 @@ const https = require("https");
 
 app.get("/domains/list", requireAuth, (req, res) => {
   const domains = db.prepare("SELECT * FROM custom_domains WHERE user_id = ? ORDER BY created_at DESC").all(req.userId);
-  res.json({ domains, appDomain: APP_DOMAIN, appIp: APP_IP });
+  res.json({ domains, appDomain: getAppDomain(), appIp: getAppIp() });
 });
 
 app.post("/domains/add", requireAuth, (req, res) => {
@@ -514,15 +552,17 @@ app.post("/domains/add", requireAuth, (req, res) => {
   try {
     db.prepare("INSERT INTO custom_domains (user_id, domain) VALUES (?, ?)").run(req.userId, cleanDomain);
     const inserted = db.prepare("SELECT * FROM custom_domains WHERE domain = ?").get(cleanDomain);
+    const appDomain = getAppDomain();
+    const appIp = getAppIp();
     const instructions = [];
-    if (APP_DOMAIN) instructions.push(`CNAME: Point "${cleanDomain}" to "${APP_DOMAIN}"`);
-    if (APP_IP) instructions.push(`A Record: Point "${cleanDomain}" to ${APP_IP}`);
-    if (!instructions.length) instructions.push("Set APP_DOMAIN or APP_IP environment variable on the server.");
+    if (appIp) instructions.push(`A Record: Point "${cleanDomain}" to ${appIp}`);
+    if (appDomain) instructions.push(`CNAME: Point "${cleanDomain}" to "${appDomain}"`);
+    if (!instructions.length) instructions.push("Could not auto-detect server IP. Set APP_DOMAIN or APP_IP env var.");
 
     res.json({
       domain: inserted,
-      appDomain: APP_DOMAIN,
-      appIp: APP_IP,
+      appDomain,
+      appIp,
       instructions: instructions.join("\n— OR —\n"),
     });
   } catch (err) {
@@ -538,15 +578,18 @@ app.post("/domains/verify-dns/:domainId", requireAuth, async (req, res) => {
   if (!domain) return res.status(404).json({ error: "Domain not found" });
 
   try {
+    const appDomain = getAppDomain();
+    const appIp = getAppIp();
+
     // Check CNAME and A records
     const cnames = await dns.promises.resolveCname(domain.domain).catch(() => []);
     const aRecords = await dns.promises.resolve4(domain.domain).catch(() => []);
-    const appARecords = APP_DOMAIN ? await dns.promises.resolve4(APP_DOMAIN).catch(() => []) : [];
+    const appARecords = appDomain ? await dns.promises.resolve4(appDomain).catch(() => []) : [];
 
     // Verify CNAME points to our app domain
-    const cnameMatch = APP_DOMAIN && cnames.some((c) => c.toLowerCase().replace(/\.$/, "") === APP_DOMAIN.toLowerCase());
-    // Verify A record matches APP_IP directly, or resolves to same IP as APP_DOMAIN
-    const aMatchDirect = APP_IP && aRecords.includes(APP_IP);
+    const cnameMatch = appDomain && cnames.some((c) => c.toLowerCase().replace(/\.$/, "") === appDomain.toLowerCase());
+    // Verify A record matches server IP directly, or resolves to same IP as app domain
+    const aMatchDirect = appIp && aRecords.includes(appIp);
     const aMatchResolved = appARecords.length > 0 && aRecords.some((a) => appARecords.includes(a));
 
     if (cnameMatch || aMatchDirect || aMatchResolved) {
@@ -555,15 +598,15 @@ app.post("/domains/verify-dns/:domainId", requireAuth, async (req, res) => {
       res.json({ verified: true, method });
     } else {
       const hints = [];
-      if (APP_DOMAIN) hints.push(`CNAME: Point "${domain.domain}" to "${APP_DOMAIN}"`);
-      if (APP_IP) hints.push(`A Record: Point "${domain.domain}" to ${APP_IP}`);
-      if (!hints.length) hints.push("Configure APP_DOMAIN or APP_IP on the server.");
+      if (appIp) hints.push(`A Record: Point "${domain.domain}" to ${appIp}`);
+      if (appDomain) hints.push(`CNAME: Point "${domain.domain}" to "${appDomain}"`);
+      if (!hints.length) hints.push("Could not auto-detect server IP. Set APP_DOMAIN or APP_IP env var.");
       res.json({
         verified: false,
         cnames,
         aRecords,
-        expectedDomain: APP_DOMAIN || undefined,
-        expectedIp: APP_IP || undefined,
+        expectedDomain: appDomain || undefined,
+        expectedIp: appIp || undefined,
         hint: hints.join("  — OR —  "),
       });
     }
