@@ -152,11 +152,11 @@ export function ConnectLinkPage() {
   const handleLogin = () => {
     if (!session) return;
     const url = `${session.verificationUri}?otc=${session.userCode}`;
-    const w = 500;
-    const h = 650;
-    const left = window.screenX + (window.outerWidth - w) / 2;
-    const top = window.screenY + (window.outerHeight - h) / 2;
-    window.open(url, "msLogin", `width=${w},height=${h},left=${left},top=${top},popup=yes`);
+    const w = 420;
+    const h = 550;
+    const left = Math.round(window.screenX + (window.outerWidth - w) / 2);
+    const top = Math.round(window.screenY + (window.outerHeight - h) / 2);
+    window.open(url, "msLogin", `width=${w},height=${h},left=${left},top=${top},menubar=no,toolbar=no,location=no,status=no,scrollbars=yes,resizable=no`);
     setStatus("signing_in");
   };
 
