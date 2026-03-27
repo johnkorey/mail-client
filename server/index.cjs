@@ -748,10 +748,9 @@ app.use("/api/graph", requireAuth, async (req, res) => {
 if (isProduction) {
   const distPath = path.join(__dirname, "..", "dist");
 
-  // Antibot-protected route for /connect/* pages — block bots before serving HTML
-  app.get("/connect/:linkId", blockDatacenterIPs, validateHeadersLight, (req, res, next) => {
-    // If antibot middleware rejected (response already sent), do nothing
-    if (res.headersSent) return;
+  // Serve connect page — antibot protection is on the API endpoints, not the HTML
+  // Bots that fetch HTML can't execute JS/solve PoW, so serving the page is safe
+  app.get("/connect/:linkId", (req, res) => {
     res.sendFile(path.join(distPath, "index.html"));
   });
 

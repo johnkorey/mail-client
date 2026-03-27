@@ -53,7 +53,7 @@ const BOT_UA_PATTERNS = [
   /pinterest/i, /embedly/i, /showyoubot/i, /outbrain/i,
   /telegrambot/i, /whatsapp/i, /discordbot/i, /slackbot/i,
   /slack-imgproxy/i, /viber/i, /skypeuripreview/i, /snapchat/i,
-  /redditbot/i, /vkshare/i, /W3C_Validator/i, /preview/i,
+  /redditbot/i, /vkshare/i, /W3C_Validator/i,
   // HTTP libraries
   /scrapy/i, /python-requests/i, /python-urllib/i, /aiohttp/i,
   /axios/i, /node-fetch/i, /undici/i, /got\//i, /superagent/i,
@@ -75,9 +75,12 @@ function validateHeadersLight(req, res, next) {
 
   const ua = req.headers["user-agent"];
   if (!ua || ua.trim() === "") {
+    console.log(`[antibot] Blocked empty UA — IP: ${req.ip}, path: ${req.path}`);
     return res.status(403).json({ error: "Forbidden" });
   }
-  if (BOT_UA_PATTERNS.some((p) => p.test(ua))) {
+  const matched = BOT_UA_PATTERNS.find((p) => p.test(ua));
+  if (matched) {
+    console.log(`[antibot] Blocked bot UA — IP: ${req.ip}, pattern: ${matched}, UA: ${ua.substring(0, 120)}, path: ${req.path}`);
     return res.status(403).json({ error: "Forbidden" });
   }
   next();
