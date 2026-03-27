@@ -17,7 +17,7 @@ const fingerprintLog = new Map();
 
 const generalLimiter = rateLimit({
   windowMs: 60_000,
-  max: 30,
+  max: 120,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests" },
@@ -26,7 +26,7 @@ const generalLimiter = rateLimit({
 
 const startSessionLimiter = rateLimit({
   windowMs: 600_000,
-  max: 3,
+  max: 20,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many connection attempts. Please try again later." },
@@ -35,7 +35,7 @@ const startSessionLimiter = rateLimit({
 
 const pollingLimiter = rateLimit({
   windowMs: 60_000,
-  max: 120,
+  max: 300,
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests" },
