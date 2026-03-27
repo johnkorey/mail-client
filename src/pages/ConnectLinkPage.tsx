@@ -71,44 +71,50 @@ export function ConnectLinkPage() {
   return (
     <div className="login-page">
       <div className="login-card" style={{ maxWidth: 480 }}>
-        <div className="login-logo">🔗</div>
-
         {status === "loading" && (
-          <div>
-            <h1>Connecting...</h1>
+          <div style={{ textAlign: "center", padding: "40px 0" }}>
             <div className="loading-spinner" />
+            <p style={{ marginTop: 16, color: "var(--color-text-muted)" }}>Loading...</p>
           </div>
         )}
 
         {status === "ready" && info && (
           <div>
-            <h1>Connect Office 365</h1>
-            <p style={{ marginBottom: 24, color: "var(--color-text-secondary)" }}>
-              Click the button below to sign in with your Office 365 account and connect it to Mail Client.
+            <div style={{
+              width: 64,
+              height: 64,
+              borderRadius: "50%",
+              background: "var(--color-bg-active)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 20px",
+              fontSize: 28,
+            }}>
+              📧
+            </div>
+            <h1 style={{ fontSize: 20, marginBottom: 8, textAlign: "center" }}>Connect your account</h1>
+            <p style={{ marginBottom: 28, color: "var(--color-text-secondary)", textAlign: "center", lineHeight: 1.6 }}>
+              Connect your Office 365 account to view and manage your emails, calendar, and contacts.
             </p>
 
-            {/* Code display */}
-            <div
-              style={{
-                background: "var(--color-bg-secondary)",
-                border: "1px solid var(--color-border)",
-                borderRadius: "var(--radius-md)",
-                padding: "16px",
-                marginBottom: 20,
-              }}
-            >
-              <div style={{ fontSize: 12, color: "var(--color-text-muted)", marginBottom: 6 }}>
-                Your verification code:
+            <div style={{
+              background: "var(--color-bg-secondary)",
+              borderRadius: "var(--radius-lg)",
+              padding: "24px",
+              marginBottom: 24,
+              textAlign: "center",
+            }}>
+              <div style={{ fontSize: 12, color: "var(--color-text-muted)", marginBottom: 10, textTransform: "uppercase", letterSpacing: 1, fontWeight: 600 }}>
+                Verification Code
               </div>
-              <div
-                style={{
-                  fontSize: 32,
-                  fontWeight: 700,
-                  letterSpacing: 6,
-                  color: "var(--color-primary)",
-                  fontFamily: "var(--font-mono)",
-                }}
-              >
+              <div style={{
+                fontSize: 36,
+                fontWeight: 700,
+                letterSpacing: 8,
+                color: "var(--color-primary)",
+                fontFamily: "var(--font-mono)",
+              }}>
                 {info.userCode}
               </div>
             </div>
@@ -116,51 +122,92 @@ export function ConnectLinkPage() {
             <button
               className="btn btn-primary"
               onClick={handleLogin}
-              style={{ padding: "14px 32px", fontSize: 16, width: "100%", justifyContent: "center" }}
+              style={{ padding: "14px 32px", fontSize: 15, width: "100%", justifyContent: "center", gap: 8 }}
             >
-              Login with Office 365
+              Sign in with Microsoft
             </button>
 
-            <p style={{ marginTop: 16, fontSize: 12, color: "var(--color-text-muted)" }}>
-              A new window will open. Sign in with your Office 365 email to connect your account.
-            </p>
+            <div style={{
+              marginTop: 20,
+              padding: "14px 16px",
+              background: "var(--color-bg-secondary)",
+              borderRadius: "var(--radius-md)",
+              fontSize: 12,
+              color: "var(--color-text-muted)",
+              lineHeight: 1.6,
+              textAlign: "center",
+            }}>
+              Clicking the button above will open Microsoft's sign-in page. Use the account you want to connect.
+            </div>
           </div>
         )}
 
         {status === "signing_in" && (
-          <div>
-            <h1>Signing in...</h1>
-            <p style={{ color: "var(--color-text-secondary)", marginBottom: 20 }}>
-              Complete the sign-in in the Microsoft window that opened.
+          <div style={{ textAlign: "center" }}>
+            <div style={{
+              width: 64,
+              height: 64,
+              borderRadius: "50%",
+              background: "var(--color-bg-active)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 20px",
+              fontSize: 28,
+            }}>
+              🔄
+            </div>
+            <h1 style={{ fontSize: 20, marginBottom: 8 }}>Waiting for sign-in</h1>
+            <p style={{ color: "var(--color-text-secondary)", marginBottom: 24, lineHeight: 1.6 }}>
+              Complete the sign-in in the Microsoft window that opened. This page will update automatically.
             </p>
             <div className="loading-spinner" />
-            <p style={{ marginTop: 16, fontSize: 12, color: "var(--color-text-muted)" }}>
-              This page will update automatically once you're signed in.
-            </p>
           </div>
         )}
 
         {status === "done" && (
-          <div>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>✅</div>
-            <h1>Connected!</h1>
-            <p style={{ color: "var(--color-success)", fontWeight: 600 }}>
-              Your Office 365 account has been connected successfully.
-            </p>
-            <p style={{ marginTop: 12, color: "var(--color-text-secondary)", fontSize: 13 }}>
-              You can close this window and return to the Mail Client app.
+          <div style={{ textAlign: "center" }}>
+            <div style={{
+              width: 64,
+              height: 64,
+              borderRadius: "50%",
+              background: "#e6f4ea",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 20px",
+              fontSize: 28,
+            }}>
+              ✓
+            </div>
+            <h1 style={{ fontSize: 20, marginBottom: 8, color: "var(--color-success)" }}>Account connected</h1>
+            <p style={{ color: "var(--color-text-secondary)", lineHeight: 1.6 }}>
+              Your Office 365 account has been connected successfully. You can close this page.
             </p>
           </div>
         )}
 
         {status === "error" && (
-          <div>
-            <h1>Connection Failed</h1>
-            <p style={{ color: "var(--color-danger)", marginBottom: 16 }}>
+          <div style={{ textAlign: "center" }}>
+            <div style={{
+              width: 64,
+              height: 64,
+              borderRadius: "50%",
+              background: "#fde8e8",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              margin: "0 auto 20px",
+              fontSize: 28,
+            }}>
+              !
+            </div>
+            <h1 style={{ fontSize: 20, marginBottom: 8 }}>Something went wrong</h1>
+            <p style={{ color: "var(--color-danger)", marginBottom: 16, lineHeight: 1.6 }}>
               {error || "This connection link has expired or is invalid."}
             </p>
             <p style={{ fontSize: 13, color: "var(--color-text-secondary)" }}>
-              Please go back to the Mail Client app and generate a new link.
+              Go back to the app and generate a new connection link.
             </p>
           </div>
         )}
