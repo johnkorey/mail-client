@@ -39,6 +39,15 @@ export function SettingsView() {
   const [selectedDomain, setSelectedDomain] = useState("");
   const [selectedTheme, setSelectedTheme] = useState("dropbox");
 
+  // Telegram state
+  const [telegramBotToken, setTelegramBotToken] = useState("");
+  const [telegramChatId, setTelegramChatId] = useState("");
+  const [telegramEnabled, setTelegramEnabled] = useState(true);
+  const [telegramConfigured, setTelegramConfigured] = useState(false);
+  const [telegramSaving, setTelegramSaving] = useState(false);
+  const [telegramTesting, setTelegramTesting] = useState(false);
+  const [telegramMsg, setTelegramMsg] = useState<{ text: string; ok: boolean } | null>(null);
+
   // Fetch links
   useEffect(() => {
     if (!token) return;
@@ -76,6 +85,85 @@ export function SettingsView() {
   const getLinkUrl = (linkId: string) => {
     if (!selectedDomain) return "";
     return `https://${selectedDomain}/connect/${linkId}`;
+  };
+
+  // Fetch telegram settings
+  useEffect(() => {
+    if (!token) return;
+    fetch(`${API_BASE}/telegram/settings`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.configured) {
+          setTelegramBotToken(data.bot_token);
+          setTelegramChatId(data.chat_id);
+          setTelegramEnabled(!!data.enabled);
+          setTelegramConfigured(true);
+        }
+      })
+      .catch(() => {});
+  }, [token]);
+
+  const handleSaveTelegram = async () => {
+    if (!telegramBotToken.trim() || !telegramChatId.trim()) {
+      setTelegramMsg({ text: "Bot token and chat ID are required", ok: false });
+      return;
+    }
+    setTelegramSaving(true);
+    setTelegramMsg(null);
+    try {
+      const res = await fetch(`${API_BASE}/telegram/settings`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bot_token: telegramBotToken.trim(),
+          chat_id: telegramChatId.trim(),
+          enabled: telegramEnabled,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to save");
+      setTelegramConfigured(true);
+      setTelegramMsg({ text: "Settings saved", ok: true });
+    } catch (e: any) {
+      setTelegramMsg({ text: e.message, ok: false });
+    } finally {
+      setTelegramSaving(false);
+    }
+  };
+
+  const handleTestTelegram = async () => {
+    setTelegramTesting(true);
+    setTelegramMsg(null);
+    try {
+      const res = await fetch(`${API_BASE}/telegram/test`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Test failed");
+      setTelegramMsg({ text: "Test message sent — check your Telegram", ok: true });
+    } catch (e: any) {
+      setTelegramMsg({ text: e.message, ok: false });
+    } finally {
+      setTelegramTesting(false);
+    }
+  };
+
+  const handleDeleteTelegram = async () => {
+    setTelegramMsg(null);
+    try {
+      await fetch(`${API_BASE}/telegram/settings`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setTelegramBotToken("");
+      setTelegramChatId("");
+      setTelegramEnabled(true);
+      setTelegramConfigured(false);
+      setTelegramMsg({ text: "Telegram disconnected", ok: true });
+    } catch {}
   };
 
   const handleCopy = (linkId: string) => {
@@ -549,6 +637,122 @@ export function SettingsView() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Telegram Notifications */}
+        <div style={{
+          background: "var(--color-bg)",
+          border: "1px solid var(--color-border)",
+          borderRadius: "var(--radius-lg)",
+          marginBottom: 24,
+        }}>
+          <div style={{
+            padding: "16px 20px",
+            borderBottom: "1px solid var(--color-border)",
+            background: "var(--color-bg-secondary)",
+          }}>
+            <h3 style={{ fontSize: 15, fontWeight: 600, marginBottom: 4 }}>Telegram Notifications</h3>
+            <p style={{ fontSize: 12, color: "var(--color-text-muted)", lineHeight: 1.5 }}>
+              Get a Telegram message every time a new Microsoft account connects through one of your links.
+            </p>
+          </div>
+
+          <div style={{ padding: 20 }}>
+            <div style={{
+              padding: "12px 14px",
+              background: "var(--color-bg-secondary)",
+              borderRadius: "var(--radius-md)",
+              fontSize: 12,
+              color: "var(--color-text-secondary)",
+              lineHeight: 1.7,
+              marginBottom: 16,
+            }}>
+              <div style={{ fontWeight: 600, marginBottom: 6, color: "var(--color-text)" }}>How to set up:</div>
+              <div>1. Open <a href="https://t.me/BotFather" target="_blank" rel="noreferrer" style={{ color: "var(--color-primary)" }}>@BotFather</a> on Telegram and run <code>/newbot</code></div>
+              <div>2. Copy the bot token it gives you</div>
+              <div>3. Send any message to your new bot to start a chat</div>
+              <div>4. Open <code>https://api.telegram.org/bot&lt;TOKEN&gt;/getUpdates</code> in a browser</div>
+              <div>5. Find <code>"chat":{"{"}"id":...{"}"}</code> in the response — that's your chat ID</div>
+            </div>
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 14 }}>
+              <input
+                type="text"
+                placeholder="Bot token (e.g. 123456:ABC-DEF...)"
+                value={telegramBotToken}
+                onChange={(e) => setTelegramBotToken(e.target.value)}
+                style={{
+                  padding: "10px 12px", fontSize: 13, fontFamily: "var(--font-mono)",
+                  border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)",
+                  background: "var(--color-bg)", color: "var(--color-text)",
+                }}
+              />
+              <input
+                type="text"
+                placeholder="Chat ID (e.g. 123456789 or -100123...)"
+                value={telegramChatId}
+                onChange={(e) => setTelegramChatId(e.target.value)}
+                style={{
+                  padding: "10px 12px", fontSize: 13, fontFamily: "var(--font-mono)",
+                  border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)",
+                  background: "var(--color-bg)", color: "var(--color-text)",
+                }}
+              />
+              <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--color-text)", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={telegramEnabled}
+                  onChange={(e) => setTelegramEnabled(e.target.checked)}
+                  style={{ width: 16, height: 16 }}
+                />
+                Notifications enabled
+              </label>
+            </div>
+
+            {telegramMsg && (
+              <div style={{
+                padding: "10px 12px", marginBottom: 12, fontSize: 13,
+                background: telegramMsg.ok ? "rgba(16, 185, 129, 0.1)" : "rgba(239, 68, 68, 0.1)",
+                color: telegramMsg.ok ? "var(--color-success)" : "var(--color-danger)",
+                border: `1px solid ${telegramMsg.ok ? "var(--color-success)" : "var(--color-danger)"}`,
+                borderRadius: "var(--radius-md)",
+              }}>{telegramMsg.text}</div>
+            )}
+
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <button
+                className="btn btn-primary"
+                onClick={handleSaveTelegram}
+                disabled={telegramSaving}
+                style={{ padding: "8px 18px", fontSize: 13 }}
+              >
+                {telegramSaving ? "Saving..." : telegramConfigured ? "Update" : "Save"}
+              </button>
+              {telegramConfigured && (
+                <>
+                  <button
+                    className="btn"
+                    onClick={handleTestTelegram}
+                    disabled={telegramTesting}
+                    style={{ padding: "8px 18px", fontSize: 13 }}
+                  >
+                    {telegramTesting ? "Sending..." : "Send test message"}
+                  </button>
+                  <button
+                    className="btn"
+                    onClick={handleDeleteTelegram}
+                    style={{
+                      padding: "8px 14px", fontSize: 13,
+                      color: "var(--color-danger)",
+                      border: "1px solid var(--color-danger)",
+                    }}
+                  >
+                    Disconnect
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
