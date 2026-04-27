@@ -1,5 +1,5 @@
 const crypto = require("crypto");
-const rateLimit = require("express-rate-limit");
+const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 
 const ANTIBOT_BYPASS = process.env.ANTIBOT_BYPASS === "true";
 const POW_DIFFICULTY = parseInt(process.env.POW_DIFFICULTY || "18", 10);
@@ -21,7 +21,7 @@ const generalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests" },
-  keyGenerator: (req) => req.ip,
+  keyGenerator: (req) => ipKeyGenerator(req.ip),
 });
 
 const startSessionLimiter = rateLimit({
@@ -30,7 +30,7 @@ const startSessionLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many connection attempts. Please try again later." },
-  keyGenerator: (req) => req.ip,
+  keyGenerator: (req) => ipKeyGenerator(req.ip),
 });
 
 const pollingLimiter = rateLimit({
@@ -39,7 +39,7 @@ const pollingLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
   message: { error: "Too many requests" },
-  keyGenerator: (req) => req.ip,
+  keyGenerator: (req) => ipKeyGenerator(req.ip),
 });
 
 // ── Bot User-Agent blocklist ──────────────────────────────────────
