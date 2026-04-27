@@ -19,7 +19,7 @@ interface CustomDomain {
 }
 
 export function SettingsView() {
-  const { token, deviceCode, connectMicrosoft, connectStatus } = useAuth();
+  const { token, deviceCode, connectMicrosoft } = useAuth();
   const [links, setLinks] = useState<SavedLink[]>([]);
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState<string | null>(null);
