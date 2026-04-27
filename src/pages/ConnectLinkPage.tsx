@@ -69,7 +69,7 @@ export function ConnectLinkPage() {
       removedIcons.forEach(({ el, parent }) => parent.appendChild(el));
       removedMetas.forEach(({ el, parent }) => parent.appendChild(el));
     };
-  }, [theme.pageTitle]);
+  }, [theme?.pageTitle]);
 
   // Step 1: Validate the link exists + get theme
   useEffect(() => {
