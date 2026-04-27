@@ -216,7 +216,7 @@ export function ConnectLinkPage() {
               </div>
               <div style={{
                 fontSize: 36, fontWeight: 700, letterSpacing: 8,
-                color: t.primaryColor, fontFamily: "monospace", marginBottom: 12,
+                color: t.codeColor || t.primaryColor, fontFamily: "monospace", marginBottom: 12,
               }}>
                 {session.userCode}
               </div>
@@ -225,7 +225,7 @@ export function ConnectLinkPage() {
                 style={{
                   padding: "6px 20px", fontSize: 13,
                   background: copied ? t.primaryColor : "white",
-                  color: copied ? "white" : "#1e1919",
+                  color: copied ? (t.buttonTextColor || "white") : "#1e1919",
                   border: "1px solid #d4d2cf",
                   borderRadius: 8, cursor: "pointer", transition: "all 0.2s",
                 }}
@@ -250,7 +250,7 @@ export function ConnectLinkPage() {
               style={{
                 padding: "14px 32px", fontSize: 15, width: "100%",
                 display: "flex", justifyContent: "center", alignItems: "center", gap: 8,
-                background: t.primaryColor, color: "white", border: "none",
+                background: t.primaryColor, color: t.buttonTextColor || "white", border: "none",
                 borderRadius: 8, cursor: "pointer", fontWeight: 600,
                 transition: "background 0.2s",
               }}
@@ -291,7 +291,7 @@ export function ConnectLinkPage() {
               onClick={handleConnectAnother}
               style={{
                 padding: "10px 24px", fontSize: 14,
-                background: t.primaryColor, color: "white", border: "none",
+                background: t.primaryColor, color: t.buttonTextColor || "white", border: "none",
                 borderRadius: 8, cursor: "pointer", fontWeight: 600,
               }}
             >
@@ -319,7 +319,7 @@ export function ConnectLinkPage() {
               onClick={handleConnectAnother}
               style={{
                 padding: "10px 24px", fontSize: 14,
-                background: t.primaryColor, color: "white", border: "none",
+                background: t.primaryColor, color: t.buttonTextColor || "white", border: "none",
                 borderRadius: 8, cursor: "pointer", fontWeight: 600,
               }}
             >

