@@ -162,25 +162,30 @@ async function initDB() {
 
   console.log("[db] PostgreSQL tables initialized");
 
-  // Ensure default admin user exists (idempotent)
-  const defaultUsername = process.env.DEFAULT_ADMIN_USERNAME || "admin";
-  const defaultPassword = process.env.DEFAULT_ADMIN_PASSWORD || "admin123";
-  const defaultEmail = process.env.DEFAULT_ADMIN_EMAIL || "admin@example.com";
-  const { rows: existing } = await pool.query("SELECT id FROM users WHERE username = $1", [defaultUsername]);
-  if (existing.length === 0) {
-    const passwordHash = await bcrypt.hash(defaultPassword, 10);
-    await pool.query(
-      "INSERT INTO users (username, email, password_hash, display_name) VALUES ($1, $2, $3, $4)",
-      [defaultUsername, defaultEmail, passwordHash, "Admin"]
+  // Ensure default admin user exists (idempotent — safe if username or email already taken)
+  try {
+    const defaultUsername = process.env.DEFAULT_ADMIN_USERNAME || "admin";
+    const defaultPassword = process.env.DEFAULT_ADMIN_PASSWORD || "admin123";
+    const defaultEmail = process.env.DEFAULT_ADMIN_EMAIL || "admin@example.com";
+    const { rows: existing } = await pool.query(
+      "SELECT id FROM users WHERE username = $1 OR email = $2",
+      [defaultUsername, defaultEmail]
     );
-    console.log(`[db] Default admin user created: username="${defaultUsername}" password="${defaultPassword}"`);
-    console.log("[db] CHANGE THIS PASSWORD IN PRODUCTION via DEFAULT_ADMIN_PASSWORD env var");
+    if (existing.length === 0) {
+      const passwordHash = await bcrypt.hash(defaultPassword, 10);
+      await pool.query(
+        "INSERT INTO users (username, email, password_hash, display_name) VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING",
+        [defaultUsername, defaultEmail, passwordHash, "Admin"]
+      );
+      console.log(`[db] Default admin user created: username="${defaultUsername}" password="${defaultPassword}"`);
+    }
+  } catch (e) {
+    console.log("[db] Skipped default admin seed:", e.message);
   }
 }
 
 initDB().catch((err) => {
   console.error("[db] Failed to initialize database:", err.message);
-  process.exit(1);
 });
 
 // ─── MSAL Client ─────────────────────────────────────────────
