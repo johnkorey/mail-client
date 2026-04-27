@@ -175,7 +175,7 @@ function MailApp() {
 }
 
 function AppRoutes() {
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, authChecking } = useAuth();
 
   return (
     <Routes>
@@ -183,7 +183,11 @@ function AppRoutes() {
       <Route path="/admin-consent" element={<AdminConsentPage />} />
       <Route
         path="*"
-        element={!isLoggedIn ? <LoginPage /> : <MailApp />}
+        element={
+          authChecking
+            ? <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}><div className="loading-spinner" /></div>
+            : !isLoggedIn ? <LoginPage /> : <MailApp />
+        }
       />
     </Routes>
   );

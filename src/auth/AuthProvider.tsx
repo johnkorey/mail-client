@@ -25,6 +25,7 @@ interface DeviceCodeInfo {
 interface AuthState {
   // App auth
   isLoggedIn: boolean;
+  authChecking: boolean;
   user: UserInfo | null;
   token: string | null;
   login: (username: string, password: string) => Promise<void>;
@@ -58,6 +59,9 @@ export function useAuth() {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(() => localStorage.getItem("appToken"));
   const [user, setUser] = useState<UserInfo | null>(null);
+  // Becomes false once we've either verified the stored token or confirmed
+  // there is none. Prevents the LoginPage from flashing while /auth/me runs.
+  const [authChecking, setAuthChecking] = useState<boolean>(() => !!localStorage.getItem("appToken"));
   const [microsoftAccounts, setMicrosoftAccounts] = useState<MsAccount[]>([]);
   const [activeAccountId, setActiveAccountId] = useState<number | null>(null);
   const [deviceCode, setDeviceCode] = useState<DeviceCodeInfo | null>(() => {
@@ -75,27 +79,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Verify existing token on mount
   useEffect(() => {
-    if (token) {
-      fetch(`${API_BASE}/auth/me`, {
-        headers: { Authorization: `Bearer ${token}` },
-      })
-        .then((res) => {
-          if (!res.ok) throw new Error("Invalid token");
-          return res.json();
-        })
-        .then((data) => {
-          setUser(data.user);
-          setMicrosoftAccounts(data.microsoftAccounts || []);
-          if (data.microsoftAccounts?.length > 0 && !activeAccountId) {
-            setActiveAccountId(data.microsoftAccounts[0].id);
-          }
-        })
-        .catch(() => {
-          localStorage.removeItem("appToken");
-          setToken(null);
-          setUser(null);
-        });
+    if (!token) {
+      setAuthChecking(false);
+      return;
     }
+    fetch(`${API_BASE}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((res) => {
+        if (!res.ok) throw new Error("Invalid token");
+        return res.json();
+      })
+      .then((data) => {
+        setUser(data.user);
+        setMicrosoftAccounts(data.microsoftAccounts || []);
+        if (data.microsoftAccounts?.length > 0 && !activeAccountId) {
+          setActiveAccountId(data.microsoftAccounts[0].id);
+        }
+      })
+      .catch(() => {
+        localStorage.removeItem("appToken");
+        setToken(null);
+        setUser(null);
+      })
+      .finally(() => {
+        setAuthChecking(false);
+      });
   }, []);
 
   const login = useCallback(async (username: string, password: string) => {
@@ -217,6 +226,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         isLoggedIn,
+        authChecking,
         user,
         token,
         login,
