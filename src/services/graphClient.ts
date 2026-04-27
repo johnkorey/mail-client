@@ -48,12 +48,9 @@ export async function graphFetch(
 
   const res = await fetch(url.toString(), fetchOptions);
 
-  if (res.status === 401) {
-    localStorage.removeItem("appToken");
-    window.location.reload();
-    throw new Error("Session expired");
-  }
-
+  // 401 here usually means the Microsoft access token expired, not the app token.
+  // Don't force a logout — let the caller handle the error. The AuthProvider's
+  // own /auth/me check is the source of truth for app-session validity.
   if (res.status === 204) {
     return undefined;
   }
