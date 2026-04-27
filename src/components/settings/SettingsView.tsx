@@ -96,8 +96,22 @@ export function SettingsView() {
     } catch {}
   };
 
+  const [generating, setGenerating] = useState(false);
+
   const handleGenerate = async () => {
-    await connectMicrosoft(selectedTheme);
+    if (generating) return;
+    setGenerating(true);
+    try {
+      await connectMicrosoft(selectedTheme);
+      // Refresh the link list so the new link shows immediately
+      const res = await fetch(`${API_BASE}/microsoft/my-links`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      setLinks(data.links || []);
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const handleAddDomain = async () => {
@@ -527,10 +541,10 @@ export function SettingsView() {
                   <button
                     className="btn btn-primary"
                     onClick={handleGenerate}
-                    disabled={connectStatus === "generating"}
+                    disabled={generating}
                     style={{ padding: "8px 20px", fontSize: 13 }}
                   >
-                    {connectStatus === "generating" ? "Generating..." : "+ Generate Link"}
+                    {generating ? "Generating..." : "+ Generate Link"}
                   </button>
                 </div>
               </div>

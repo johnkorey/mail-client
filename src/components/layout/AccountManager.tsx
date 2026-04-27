@@ -339,6 +339,39 @@ export function AccountManager({ onClose }: AccountManagerProps) {
                     Waiting for you to sign in from the link...
                   </p>
                 </div>
+
+                {/* Generate another link with a different theme */}
+                <div style={{
+                  marginTop: 16,
+                  paddingTop: 14,
+                  borderTop: "1px solid var(--color-border)",
+                }}>
+                  <div style={{ fontSize: 12, color: "var(--color-text-muted)", marginBottom: 8 }}>
+                    Generate another link with a different template:
+                  </div>
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <select
+                      value={selectedTheme}
+                      onChange={(e) => setSelectedTheme(e.target.value)}
+                      style={{
+                        flex: 1, padding: "8px 10px", fontSize: 13,
+                        border: "1px solid var(--color-border)", borderRadius: "var(--radius-md)",
+                        background: "var(--color-bg)", color: "var(--color-text)",
+                      }}
+                    >
+                      {THEME_LIST.map((t) => (
+                        <option key={t.id} value={t.id}>{t.label}</option>
+                      ))}
+                    </select>
+                    <button
+                      className="btn"
+                      onClick={() => connectMicrosoft(selectedTheme)}
+                      style={{ padding: "8px 14px", fontSize: 13, whiteSpace: "nowrap" }}
+                    >
+                      + New Link
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
