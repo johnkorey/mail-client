@@ -18,7 +18,7 @@ export function ConnectLinkPage() {
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [honeypot, setHoneypot] = useState({ email_address: "", phone_number: "", website_url: "" });
-  const [theme, setTheme] = useState<LinkTheme>(getTheme("dropbox"));
+  const [theme, setTheme] = useState<LinkTheme | null>(null);
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
 
   useEffect(() => {
@@ -30,7 +30,7 @@ export function ConnectLinkPage() {
   // Set page title + meta, remove favicon
   useEffect(() => {
     const originalTitle = document.title;
-    document.title = theme.pageTitle;
+    if (theme) document.title = theme.pageTitle;
 
     const existingIcons = document.querySelectorAll("link[rel*='icon']");
     const removedIcons: { el: HTMLElement; parent: HTMLElement }[] = [];
@@ -171,6 +171,28 @@ export function ConnectLinkPage() {
     setHoneypot({ email_address: "", phone_number: "", website_url: "" });
     startSession();
   };
+
+  // Render a neutral blank screen until the theme is loaded so the wrong
+  // brand doesn't flash before the correct one
+  if (!theme) {
+    if (status === "error") {
+      return (
+        <div style={{
+          minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+          background: "white", fontFamily: "system-ui, -apple-system, sans-serif",
+          padding: 24, textAlign: "center", color: "#637282", fontSize: 14,
+        }}>{error || "Something went wrong."}</div>
+      );
+    }
+    return (
+      <div style={{
+        minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center",
+        background: "white",
+      }}>
+        <div className="loading-spinner" />
+      </div>
+    );
+  }
 
   const t = theme;
 
