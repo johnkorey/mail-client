@@ -612,6 +612,22 @@ select {
   width: 100%;
 }
 
+@media (max-width: 540px) {
+  .login-page {
+    padding: 16px;
+  }
+  .login-card {
+    padding: 28px 20px;
+    border-radius: var(--radius-md);
+  }
+  .login-card h1 {
+    font-size: 22px;
+  }
+  .login-card p {
+    font-size: 14px;
+  }
+}
+
 .login-card h1 {
   font-size: 28px;
   font-weight: 700;

